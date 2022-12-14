@@ -21,6 +21,12 @@ pub enum FileHandlerError {
     ErrorInvalidFileContents
 }
 
+impl From<std::io::Error> for FileHandlerError {
+    fn from(error: std::io::Error) -> Self {
+        FileHandlerError::ErrorFileOpenFailed
+    }
+}
+
 pub enum ParseError {
     MnemonicParseError(MnemonicParseError),
     RegisterParseError(RegisterParseError),

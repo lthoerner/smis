@@ -5,15 +5,24 @@ use std::io::{ BufRead, BufReader };
 use crate::utilities::symbol_table;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::string_methods::SMISString;
-use self::errors::assembler_error::AssemblerError;
+// use self::errors::assembler_error::AssemblerError;
 use self::errors::assembler_error::FileHandlerError;
-use self::errors::assembler_error::ParseError;
+// use self::errors::assembler_error::ParseError;
 use self::errors::assembler_error::ImmediateParseError;
 use self::errors::assembler_error::RegisterParseError;
 
 
-pub fn assemble(asm_file_name: &str, bin_file_name: &str) {
-    
+pub fn assemble(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
+    // Open the input and output file
+    let asm_file = File::options().read(true).open(asm_file_name)?;
+    let bin_file = File::options().write(true).create(true).open(bin_file_name)?;
+
+    // Scan all labels into the symbol table
+    let symbol_table = read_labels(&asm_file)?;
+
+    dbg!("Symbol table: {}", symbol_table);
+
+    Ok(())
 }
 
 // Scans the input ASM file for labels, and adds them to the symbol table for use later
@@ -39,8 +48,8 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
         if is_label(line) {
             symbol_table.add_label(match line.strip_suffix(':') {
                 Some(name) => name,
-                // TODO: Error type?
-                None => panic!()
+                // This should never happen, as the above condition requires the line to end in ':'
+                None => panic!("[INTERNAL ERROR] Label was missing suffix")
             }, current_address);
         }
 
