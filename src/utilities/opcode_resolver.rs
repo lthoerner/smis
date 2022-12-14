@@ -2,53 +2,53 @@ use super::instruction::Instruction;
 
 
 // Opcode constants
-const OP_SET: u8                = 0x01;
-const OP_COPY: u8               = 0x02;
+pub const OP_SET: u8                = 0x01;
+pub const OP_COPY: u8               = 0x02;
 
-const OP_ADD: u8                = 0x03;
-const OP_SUBTRACT: u8           = 0x04;
-const OP_MULTIPLY: u8           = 0x05;
-const OP_DIVIDE: u8             = 0x06;
-const OP_MODULO: u8             = 0x07;
+pub const OP_ADD: u8                = 0x03;
+pub const OP_SUBTRACT: u8           = 0x04;
+pub const OP_MULTIPLY: u8           = 0x05;
+pub const OP_DIVIDE: u8             = 0x06;
+pub const OP_MODULO: u8             = 0x07;
 
-const OP_COMPARE: u8            = 0x08;
+pub const OP_COMPARE: u8            = 0x08;
 
-const OP_SHIFT_LEFT: u8         = 0x09;
-const OP_SHIFT_RIGHT: u8        = 0x0A;
+pub const OP_SHIFT_LEFT: u8         = 0x09;
+pub const OP_SHIFT_RIGHT: u8        = 0x0A;
 
-const OP_AND: u8                = 0x0B;
-const OP_OR: u8                 = 0x0C;
-const OP_XOR: u8                = 0x0D;
-const OP_NAND: u8               = 0x0E;
-const OP_NOR: u8                = 0x0F;
-const OP_NOT: u8                = 0x10;
+pub const OP_AND: u8                = 0x0B;
+pub const OP_OR: u8                 = 0x0C;
+pub const OP_XOR: u8                = 0x0D;
+pub const OP_NAND: u8               = 0x0E;
+pub const OP_NOR: u8                = 0x0F;
+pub const OP_NOT: u8                = 0x10;
 
-const OP_ADD_IMM: u8            = 0x11;
-const OP_SUBTRACT_IMM: u8       = 0x12;
-const OP_MULTIPLY_IMM: u8       = 0x13;
-const OP_DIVIDE_IMM: u8         = 0x14;
-const OP_MODULO_IMM: u8         = 0x15;
+pub const OP_ADD_IMM: u8            = 0x11;
+pub const OP_SUBTRACT_IMM: u8       = 0x12;
+pub const OP_MULTIPLY_IMM: u8       = 0x13;
+pub const OP_DIVIDE_IMM: u8         = 0x14;
+pub const OP_MODULO_IMM: u8         = 0x15;
 
-const OP_COMPARE_IMM: u8        = 0x16;
+pub const OP_COMPARE_IMM: u8        = 0x16;
 
-const OP_SHIFT_LEFT_IMM: u8     = 0x17;
-const OP_SHIFT_RIGHT_IMM: u8    = 0x18;
+pub const OP_SHIFT_LEFT_IMM: u8     = 0x17;
+pub const OP_SHIFT_RIGHT_IMM: u8    = 0x18;
 
-const OP_AND_IMM: u8            = 0x19;
-const OP_OR_IMM: u8             = 0x1A;
-const OP_XOR_IMM: u8            = 0x1B;
-const OP_NAND_IMM: u8           = 0x1C;
-const OP_NOR_IMM: u8            = 0x1D;
+pub const OP_AND_IMM: u8            = 0x19;
+pub const OP_OR_IMM: u8             = 0x1A;
+pub const OP_XOR_IMM: u8            = 0x1B;
+pub const OP_NAND_IMM: u8           = 0x1C;
+pub const OP_NOR_IMM: u8            = 0x1D;
 
-const OP_LOAD: u8               = 0x1E;
-const OP_STORE: u8              = 0x1F;
+pub const OP_LOAD: u8               = 0x1E;
+pub const OP_STORE: u8              = 0x1F;
 
-const OP_JUMP: u8               = 0x20;
-const OP_JUMP_IF_ZERO: u8       = 0x21;
-const OP_JUMP_IF_NOTZERO: u8    = 0x22;
-const OP_JUMP_LINK: u8          = 0x23;
+pub const OP_JUMP: u8               = 0x20;
+pub const OP_JUMP_IF_ZERO: u8       = 0x21;
+pub const OP_JUMP_IF_NOTZERO: u8    = 0x22;
+pub const OP_JUMP_LINK: u8          = 0x23;
 
-const OP_HALT: u8               = 0x24;
+pub const OP_HALT: u8               = 0x24;
 
 
 // Gets the associated mnemonic for a given opcode

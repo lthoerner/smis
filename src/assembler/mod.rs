@@ -64,7 +64,8 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
     Ok(symbol_table)
 }
 
-pub fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), AssemblerError> {
+// Reads the ASM file and returns a Vec of the assembled instructions
+fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), AssemblerError> {
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
         Ok(()) => (),
@@ -95,13 +96,57 @@ pub fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), Ass
 
         print!("[{}] ", line_count);
         match instruction {
-            Instruction::RFormat { .. } => println!("{} is an R-Format", line),
+            Instruction::RFormat { .. } => println!("{} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
             Instruction::IFormat { .. } => println!("{} is an I-Format", line),
             Instruction::JFormat { .. } => println!("{} is a J-Format", line)
         }
     }
 
     Ok(())
+}
+
+// Assembles all R-Format instructions into a u32
+fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) -> Result<u32, ParseError> {
+    // COMPARE instructions do not have an destination register
+    // This could be renamed to compare_mode, but there could eventually be other instructions that also have
+    // no destination register, so this is a more modular approach
+    let mut no_dest = false;
+    // Similarly, NOT and COPY instructions do not have a second operand register
+    let mut no_op2 = false;
+
+    // Make sure that the Instruction passed in is an R-Format
+    match instruction_container {
+        Instruction::RFormat { opcode, ref mut r_dest, ref mut r_op1, ref mut r_op2 } => {
+            match opcode {
+                opcode_resolver::OP_COMPARE => no_dest = true,
+                opcode_resolver::OP_NOT | opcode_resolver::OP_COPY => no_op2 = true,
+                _ => ()
+            }
+
+            // In the case of a missing destination register, all the operand words are shifted over to the left
+            let missing_destination_index_adjustment = no_dest as usize;
+
+            // If there is no destination register, the r_dest field is left blank
+            *r_dest = match no_dest {
+                true => 0x00,
+                false => get_register(instruction, 1)?
+            };
+
+            // All instructions are guaranteed to have a first operand register
+            *r_op1 = get_register(instruction, 2 - missing_destination_index_adjustment)?;
+
+            // If there is no second operand register, the r_op2 field is left blank
+            *r_op2 = match no_op2 {
+                true => 0x00,
+                false => get_register(instruction, 3 - missing_destination_index_adjustment)?
+            };
+
+            return Ok(instruction_container.encode());
+        },
+        // These should never happen, as the function is only called from a match block that switches based on the enum variant
+        Instruction::IFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format"),
+        Instruction::JFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format")
+    }
 }
 
 // Takes the instruction, gets the mnemonic, and translates it into an opcode
