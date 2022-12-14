@@ -96,7 +96,7 @@ pub fn get_mnemonic(opcode: u8) -> Option<&'static str> {
 
 // Gets the associated opcode for a given mnemonic
 pub fn get_opcode(mnemonic: &str) -> Option<u8> {
-    Some(match mnemonic { 
+    Some(match mnemonic.to_lowercase().as_str() { 
         "set"               => OP_SET,
         "copy"              => OP_COPY,
         "add"               => OP_ADD,
@@ -156,7 +156,7 @@ pub fn get_instruction_format(opcode: u8) -> Option<Instruction> {
         | OP_NOR
         | OP_NOT
             => Instruction::RFormat {
-                opcode: 0,
+                opcode,
                 r_dest: 0,
                 r_op1: 0,
                 r_op2: 0
@@ -178,7 +178,7 @@ pub fn get_instruction_format(opcode: u8) -> Option<Instruction> {
         | OP_LOAD
         | OP_STORE
             => Instruction::IFormat {
-                opcode: 0,
+                opcode,
                 r_dest: 0,
                 r_op1: 0,
                 i_op2: 0
@@ -189,7 +189,7 @@ pub fn get_instruction_format(opcode: u8) -> Option<Instruction> {
         | OP_JUMP_LINK
         | OP_HALT
             => Instruction::JFormat {
-                opcode: 0,
+                opcode,
                 dest_addr: 0
             },
         _ => return None

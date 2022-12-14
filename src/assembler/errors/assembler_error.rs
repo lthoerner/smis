@@ -15,6 +15,13 @@ impl From<ParseError> for AssemblerError {
     }
 }
 
+// TODO: Remove this if possible
+impl From<MnemonicParseError> for AssemblerError {
+    fn from(error: MnemonicParseError) -> Self {
+        AssemblerError::ParseError(ParseError::MnemonicParseError(error))
+    }
+}
+
 pub enum FileHandlerError {
     ErrorFileOpenFailed,
     ErrorFileCreateFailed,
@@ -52,16 +59,19 @@ impl From<ImmediateParseError> for ParseError {
 }
 
 pub enum MnemonicParseError {
-    ErrorMnemonicNotFound
+    ErrorMissingMnemonic,
+    ErrorUnknownMnemonic
 }
 
 pub enum RegisterParseError {
+    ErrorMissingRegisterOperand,
     ErrorInvalidPrefix,
     ErrorNonNumeric,
     ErrorNumberOutOfBounds
 }
 
 pub enum ImmediateParseError {
+    ErrorMissingImmediateOperand,
     ErrorInvalidPrefix,
     ErrorNonNumeric,
     ErrorNumberOutOfBounds

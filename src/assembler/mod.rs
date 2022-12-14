@@ -1,8 +1,9 @@
 mod errors;
 
 use std::fs::File;
-use std::io::{ BufRead, BufReader };
-use crate::utilities::symbol_table;
+use std::io::{ BufRead, BufReader, Seek };
+use crate::utilities::*;
+use crate::utilities::instruction::Instruction;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::string_methods::SMISString;
 use self::errors::assembler_error::*;
@@ -15,8 +16,13 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
 
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&asm_file)?;
-
+    
     dbg!("Symbol table: {}", symbol_table);
+
+    match assemble_instructions(&asm_file, &bin_file) {
+        Ok(()) => (),
+        Err(_) => panic!("Something went wrong.")
+    };
 
     Ok(())
 }
@@ -59,13 +65,65 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
 }
 
 pub fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), AssemblerError> {
-    Err(AssemblerError::FileHandlerError(FileHandlerError::ErrorFileCreateFailed))
+    let mut scanner = BufReader::new(asm_file);
+    match scanner.rewind() {
+        Ok(()) => (),
+        Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
+    };
+
+    let mut line_count: u16 = 0;
+
+    for line in scanner.lines() {
+        line_count += 1;
+
+        let line = match line {
+            Ok(text) => text,
+            Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
+        };
+
+        let line = line.trim();
+
+        if is_blankline(line) || is_comment(line) || is_label(line) { continue; }
+
+        let opcode = parse_opcode(line)?;
+
+        // Gets an Instruction with the necessary format and the given opcode
+        let instruction = match opcode_resolver::get_instruction_format(opcode) {
+            Some(instr) => instr,
+            None => return Err(AssemblerError::from(MnemonicParseError::ErrorUnknownMnemonic))
+        };
+
+        print!("[{}] ", line_count);
+        match instruction {
+            Instruction::RFormat { .. } => println!("{} is an R-Format", line),
+            Instruction::IFormat { .. } => println!("{} is an I-Format", line),
+            Instruction::JFormat { .. } => println!("{} is a J-Format", line)
+        }
+    }
+
+    Ok(())
+}
+
+// Takes the instruction, gets the mnemonic, and translates it into an opcode
+fn parse_opcode(instruction: &str) -> Result<u8, MnemonicParseError> {
+    let mnemonic = match instruction.get_word(0) {
+        Some(mnem) => mnem,
+        None => return Err(MnemonicParseError::ErrorMissingMnemonic)
+    };
+
+    match opcode_resolver::get_opcode(mnemonic) {
+        Some(op) => Ok(op),
+        None => Err(MnemonicParseError::ErrorUnknownMnemonic)
+    }
 }
 
 // Gets the register number operand from a given instruction by pulling the
 // given operand with get_word() and parsing it using parse_register()
 fn get_register(instruction: &str, index: usize) -> Result<u8, RegisterParseError> {
-    let unparsed_register = instruction.get_word(index);
+    let unparsed_register = match instruction.get_word(index) {
+        Some(reg) => reg,
+        None => return Err(RegisterParseError::ErrorMissingRegisterOperand)
+    };
 
     Ok(parse_register(unparsed_register)?)
 }
@@ -106,7 +164,10 @@ fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
 // Gets the immediate value operand from a given instruction by pulling the
 // last operand with get_word() and parsing it using parse_immediate()
 fn get_immediate(instruction: &str) -> Result<u16, ImmediateParseError> {
-    let unparsed_immediate = instruction.get_word(instruction.count_words());
+    let unparsed_immediate = match instruction.get_word(instruction.count_words()) {
+        Some(imm) => imm,
+        None => return Err(ImmediateParseError::ErrorMissingImmediateOperand)
+    };
 
     Ok(parse_immediate(unparsed_immediate)?)
 }
