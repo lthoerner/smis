@@ -3,8 +3,22 @@ pub struct SymbolTable {
     labels: Vec<Label>
 }
 
+impl SymbolTable {
+    // Adds a label to the symbol table
+    pub fn add_label(&mut self, name: &str, address: u16) {
+        let name = name.to_string();
+
+        let lbl = Label {
+            name,
+            address
+        };
+
+        self.labels.push(lbl);
+    }
+}
+
 // Represents a label, which is a name given to an address in instruction memory
 struct Label {
-    name: &str,
+    name: String,
     address: u16
 }
