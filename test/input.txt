@@ -13,7 +13,7 @@ Some Label 1:
     // Test comment 2:
 
     COPY R2 R2
-    OR-IMM R2 R1 R12
+    OR-IMM R2 R1 #48
 
     Some Nested Label 1:
 
