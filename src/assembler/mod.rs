@@ -17,8 +17,10 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&asm_file)?;
     
+    // Print the symbol table
     dbg!("Symbol table: {}", symbol_table);
 
+    // Assemble all the instructions and catch any errors
     match assemble_instructions(&asm_file, &bin_file) {
         Ok(()) => (),
         Err(_) => panic!("Something went wrong.")
@@ -35,8 +37,13 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
     // Stores all labels found in the file
     let mut symbol_table = symbol_table::new();
     
-    let scanner = BufReader::new(asm_file);
+    let mut scanner = BufReader::new(asm_file);
+    match scanner.rewind() {
+        Ok(()) => (),
+        Err(_) => return Err(FileHandlerError::ErrorInvalidFileContents)
+    };
 
+    // For each line in the file
     for line in scanner.lines() {
         // Handle any errors for line reading
         let line = match line {
@@ -72,8 +79,10 @@ fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), Assembl
         Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
     };
 
+    // Line count is stored to give more descriptive error messages
     let mut line_count: u16 = 0;
 
+    // For each line in the file
     for line in scanner.lines() {
         line_count += 1;
 
@@ -120,6 +129,7 @@ fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) 
             match opcode {
                 opcode_resolver::OP_COMPARE => no_dest = true,
                 opcode_resolver::OP_NOT | opcode_resolver::OP_COPY => no_op2 = true,
+                // Use default values for instructions with standard format
                 _ => ()
             }
 
