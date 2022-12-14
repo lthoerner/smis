@@ -8,7 +8,7 @@ use crate::utilities::string_methods::SMISString;
 use self::errors::assembler_error::*;
 
 
-pub fn assemble(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
+pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
     // Open the input and output file
     let asm_file = File::options().read(true).open(asm_file_name)?;
     let bin_file = File::options().write(true).create(true).open(bin_file_name)?;
@@ -56,6 +56,10 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
     }
 
     Ok(symbol_table)
+}
+
+pub fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), AssemblerError> {
+    Err(AssemblerError::FileHandlerError(FileHandlerError::ErrorFileCreateFailed))
 }
 
 // Gets the register number operand from a given instruction by pulling the

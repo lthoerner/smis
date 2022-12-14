@@ -37,7 +37,7 @@ fn main() {
     }
 
     match target.as_str() {
-        "--assemble" | "-a" => match assembler::assemble(input_file, output_file) {
+        "--assemble" | "-a" => match assembler::start_assembler(input_file, output_file) {
             Ok(()) => println!("File assembled successfully."),
             Err(_) => println!("File failed to assemble.")
         },
