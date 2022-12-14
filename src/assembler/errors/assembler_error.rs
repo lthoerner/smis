@@ -25,6 +25,7 @@ impl From<MnemonicParseError> for AssemblerError {
 pub enum FileHandlerError {
     ErrorFileOpenFailed,
     ErrorFileCreateFailed,
+    ErrorFileWriteFailed,
     ErrorInvalidFileContents
 }
 

@@ -1,7 +1,7 @@
 mod errors;
 
 use std::fs::File;
-use std::io::{ BufRead, BufReader, Seek };
+use std::io::{ BufRead, BufReader, Seek, Write };
 use crate::utilities::*;
 use crate::utilities::instruction::Instruction;
 use crate::utilities::symbol_table::SymbolTable;
@@ -12,19 +12,29 @@ use self::errors::assembler_error::*;
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
     // Open the input and output file
     let asm_file = File::options().read(true).open(asm_file_name)?;
-    let bin_file = File::options().write(true).create(true).open(bin_file_name)?;
+    let mut bin_file = File::options().write(true).create(true).open(bin_file_name)?;
 
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&asm_file)?;
-    
-    // Print the symbol table
-    dbg!("Symbol table: {}", &symbol_table);
 
     // Assemble all the instructions and catch any errors
     match assemble_instructions(&asm_file, &symbol_table) {
-        Ok(_) => (),
+        Ok(assembled_instructions) => write_output(&mut bin_file, &assembled_instructions)?,
         Err(_) => panic!("Something went wrong.")
     };
+
+    Ok(())
+}
+
+fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<(), FileHandlerError> {
+    for instruction in assembled_instructions {
+        let instruction = *instruction;
+        // TODO: Add From for file write to FileHandlerError
+        match bin_file.write_all(&instruction.to_be_bytes()) {
+            Ok(_) => (),
+            Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)
+        };
+    }
 
     Ok(())
 }
