@@ -103,10 +103,10 @@ fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), Assembl
             None => return Err(AssemblerError::from(MnemonicParseError::ErrorUnknownMnemonic))
         };
 
-        print!("[{}] ", line_count);
+        print!("[{:02}] ", line_count);
         match instruction {
-            Instruction::RFormat { .. } => println!("{} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
-            Instruction::IFormat { .. } => println!("{} is an I-Format", line),
+            Instruction::RFormat { .. } => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
+            Instruction::IFormat { .. } => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
             Instruction::JFormat { .. } => println!("{} is a J-Format", line)
         }
     }
@@ -142,7 +142,7 @@ fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) 
                 false => get_register(instruction, 1)?
             };
 
-            // All instructions are guaranteed to have a first operand register
+            // All R-Format instructions are guaranteed to have a first operand register
             *r_op1 = get_register(instruction, 2 - missing_destination_index_adjustment)?;
 
             // If there is no second operand register, the r_op2 field is left blank
@@ -156,6 +156,46 @@ fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) 
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
         Instruction::IFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format"),
         Instruction::JFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format")
+    }
+}
+
+// Assembles all I-Format instructions into a u32
+fn assemble_i_format(instruction: &str, mut instruction_container: Instruction) -> Result<u32, ParseError> {
+    // COMPARE-IMM instructions do not have an destination register
+    let mut no_dest = false;
+    // Similarly, SET instructions do not have a register operand
+    let mut no_reg_op = false;
+
+    // Make sure that the Instruction passed in is an I-Format
+    match instruction_container {
+        Instruction::IFormat { opcode, ref mut r_dest, ref mut r_op1, ref mut i_op2 } => {
+            match opcode {
+                opcode_resolver::OP_COMPARE_IMM => no_dest = true,
+                opcode_resolver::OP_SET => no_reg_op = true,
+                // Use default values for instructions with standard format
+                _ => ()
+            }
+
+            // If there is no destination register, the r_dest field is left blank
+            *r_dest = match no_dest {
+                true => 0x00,
+                false => get_register(instruction, 1)?
+            };
+
+            // If there is no register operand, the r_op1 field is left blank
+            *r_op1 = match no_reg_op {
+                true => 0x00,
+                false => get_register(instruction, 2)?
+            };
+
+            // All I-Format instructions are guaranteed to have an immediate operand
+            *i_op2 = get_immediate(instruction)?;
+
+            return Ok(instruction_container.encode());
+        },
+        // These should never happen, as the function is only called from a match block that switches based on the enum variant
+        Instruction::RFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as I-Format"),
+        Instruction::JFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as I-Format")
     }
 }
 
@@ -219,7 +259,7 @@ fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
 // Gets the immediate value operand from a given instruction by pulling the
 // last operand with get_word() and parsing it using parse_immediate()
 fn get_immediate(instruction: &str) -> Result<u16, ImmediateParseError> {
-    let unparsed_immediate = match instruction.get_word(instruction.count_words()) {
+    let unparsed_immediate = match instruction.get_word(instruction.count_words() - 1) {
         Some(imm) => imm,
         None => return Err(ImmediateParseError::ErrorMissingImmediateOperand)
     };
