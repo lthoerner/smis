@@ -77,3 +77,14 @@ fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
         }
     }
 }
+
+// Checks whether a given string ends with a ':', denoting that it is a jump label
+fn is_label(line: &str) -> bool {
+    // TODO: Possibly add checking for extra ':' at the end
+    line.chars().last().unwrap() == ':'
+}
+
+// Checks whether a given string is a blank line, a comment, or a label, in which case it will be skipped over by the assembler
+fn is_blankline_comment_label(line: &str) -> bool {
+    line.chars().all(|c| c.is_whitespace()) || line.starts_with("//") || is_label(line)
+}
