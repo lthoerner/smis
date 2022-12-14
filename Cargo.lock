@@ -6,11 +6,11 @@ version = 3
 name = "SMIS"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bimap",
 ]
 
 [[package]]
-name = "bitfield"
-version = "0.14.0"
+name = "bimap"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d7e60934ceec538daadb9d8432424ed043a904d8e0243f3c6446bce549a46ac"
+checksum = "bc0455254eb5c6964c4545d8bac815e1a1be4f3afe0ae695ea539c12d728d44b"
