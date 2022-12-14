@@ -18,10 +18,10 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
     let symbol_table = read_labels(&asm_file)?;
     
     // Print the symbol table
-    dbg!("Symbol table: {}", symbol_table);
+    dbg!("Symbol table: {}", &symbol_table);
 
     // Assemble all the instructions and catch any errors
-    match assemble_instructions(&asm_file, &bin_file) {
+    match assemble_instructions(&asm_file, &bin_file, &symbol_table) {
         Ok(()) => (),
         Err(_) => panic!("Something went wrong.")
     };
@@ -72,7 +72,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
 }
 
 // Reads the ASM file and returns a Vec of the assembled instructions
-fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), AssemblerError> {
+fn assemble_instructions(asm_file: &File, bin_file: &File, symbol_table: &SymbolTable) -> Result<(), AssemblerError> {
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
         Ok(()) => (),
@@ -91,8 +91,10 @@ fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), Assembl
             Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
         };
 
+        // Trim any whitespace from the instruction for parsing
         let line = line.trim();
 
+        // Skip non-instruction lines
         if is_blankline(line) || is_comment(line) || is_label(line) { continue; }
 
         let opcode = parse_opcode(line)?;
@@ -107,7 +109,7 @@ fn assemble_instructions(asm_file: &File, bin_file: &File) -> Result<(), Assembl
         match instruction {
             Instruction::RFormat { .. } => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
             Instruction::IFormat { .. } => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
-            Instruction::JFormat { .. } => println!("{} is a J-Format", line)
+            Instruction::JFormat { .. } => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
         }
     }
 
@@ -199,6 +201,48 @@ fn assemble_i_format(instruction: &str, mut instruction_container: Instruction) 
     }
 }
 
+// Assembles all J-Format instructions into a u32
+fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, symbol_table: &SymbolTable) -> Result<u32, ParseError> {
+    // HALT instructions do not have a destination label
+    let mut no_label = false;
+
+    // Make sure that the Instruction passed in is a J-Format
+    match instruction_container {
+        Instruction::JFormat { opcode, ref mut dest_addr } => {
+            match opcode {
+                opcode_resolver::OP_HALT => no_label = true,
+                // Use default value for instructions with standard format
+                _ => ()
+            }
+
+            // Skip address resolution for instructions with no destination label
+            match no_label {
+                true => (),
+                false => {
+                    // Get word 1, which is expected to be a label
+                    // TODO: Strip word 0 and get the rest, because of potential extra garbage
+                    let label = match instruction.get_word(1) {
+                        Some(lbl) => lbl,
+                        // TODO: Change error type!!!
+                        None => return Err(ParseError::from(ImmediateParseError::ErrorInvalidPrefix))
+                    };
+
+                    // Get the label address of a given label name, if it is not a HALT
+                    *dest_addr = match symbol_table.find_address(label) {
+                        Some(addr) => addr,
+                        None => return Err(ParseError::from(ImmediateParseError::ErrorInvalidPrefix))
+                    };
+                }
+            }
+
+            return Ok(instruction_container.encode());
+        },
+        // These should never happen, as the function is only called from a match block that switches based on the enum variant
+        Instruction::RFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as J-Format"),
+        Instruction::IFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as J-Format")
+    }
+}
+
 // Takes the instruction, gets the mnemonic, and translates it into an opcode
 fn parse_opcode(instruction: &str) -> Result<u8, MnemonicParseError> {
     let mnemonic = match instruction.get_word(0) {
@@ -287,8 +331,15 @@ fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
 
 // Checks whether a given string ends with a ':', denoting that it is a jump label
 fn is_label(line: &str) -> bool {
+    // Get the first word of the line, which could be the label
+    // Forbids labels from containing whitespace
+    let first_word = match line.get_word(0) {
+        Some(word) => word,
+        None => return false
+    };
+
     // TODO: Possibly add checking for extra ':' at the end
-    !is_comment(line) && line.trim().chars().last() == Some(':')
+    !is_comment(line) && first_word.chars().last() == Some(':')
 }
 
 // Checks whether a given string starts with a "//", denoting that it is a comment
