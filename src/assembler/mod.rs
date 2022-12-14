@@ -3,15 +3,56 @@
 
 mod errors;
 
+use std::num::IntErrorKind;
+
 use crate::utilities::string_methods::SMISString;
 use self::errors::assembler_error::AssemblerError;
 use self::errors::assembler_error::FileHandlerError;
 use self::errors::assembler_error::ParseError;
 use self::errors::assembler_error::ImmediateParseError;
+use self::errors::assembler_error::RegisterParseError;
 
 
 pub fn assemble(asm_file_name: &str, bin_file_name: &str) {
     
+}
+
+fn get_register(instruction: &str, index: usize) -> Result<u8, RegisterParseError> {
+    let unparsed_register = instruction.get_word(index);
+
+    Ok(parse_register(unparsed_register)?)
+}
+
+fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
+    // Test special cases
+    match register {
+        "RZR" => return Ok(0),
+        "RSP" => return Ok(15),
+        "RBP" => return Ok(14),
+        "RLR" => return Ok(13),
+        _ => ()
+    }
+
+    // Make sure the register begins with 'R'
+    let trimmed_register = match register.strip_prefix('R') {
+        Some(trim) => trim,
+        None => return Err(RegisterParseError::ErrorInvalidPrefix)
+    };
+
+    // Make sure the value after the prefix is numerical and within u8 bounds
+    let register_num = match trimmed_register.parse::<u8>() {
+        Ok(val) => val,
+        Err(err) => match err.kind() {
+            IntErrorKind::PosOverflow => return Err(RegisterParseError::ErrorNumberOutOfBounds),
+            _ => return Err(RegisterParseError::ErrorNonNumeric)
+        }
+    };
+
+    // Make sure the register exists (0-15)
+    match register_num > 15 {
+        true => Err(RegisterParseError::ErrorNumberOutOfBounds),
+        false => Ok(register_num)
+    }
 }
 
 fn get_immediate(instruction: &str, index: usize) -> Result<u16, ImmediateParseError> {
@@ -27,9 +68,12 @@ fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
         None => return Err(ImmediateParseError::ErrorInvalidPrefix)
     };
 
-    // Make sure the value after the prefix is numerical, then return it
+    // Make sure the value after the prefix is numerical and within u16 bounds, then return it
     match trimmed_immediate.parse::<u16>() {
         Ok(val) => Ok(val),
-        Err(_) => Err(ImmediateParseError::ErrorNonNumeric)
+        Err(err) => match err.kind() {
+            IntErrorKind::PosOverflow => Err(ImmediateParseError::ErrorNumberOutOfBounds),
+            _ => Err(ImmediateParseError::ErrorNonNumeric)
+        }
     }
 }
