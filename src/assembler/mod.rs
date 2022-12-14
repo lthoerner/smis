@@ -46,7 +46,8 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
 
         // Add any labels to the symbol table
         if is_label(line) {
-            symbol_table.add_label(match line.strip_suffix(':') {
+            // TODO: Add get_label_name() and refactor
+            symbol_table.add_label(match line.trim().strip_suffix(':') {
                 Some(name) => name,
                 // This should never happen, as the above condition requires the line to end in ':'
                 None => panic!("[INTERNAL ERROR] Label was missing suffix")
@@ -55,18 +56,21 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
 
         // Current address is incremented by 2 because all instructions
         // are 32 bits, but the memory values are only 16 bits
-        if !is_blankline_comment_label(line) { current_address += 2; }
+        if !is_blankline(line) && !is_comment(line) && !is_label(line) { current_address += 2; }
     }
 
     Ok(symbol_table)
 }
 
+// Gets the register number operand from a given instruction by pulling the
+// given operand with get_word() and parsing it using parse_register()
 fn get_register(instruction: &str, index: usize) -> Result<u8, RegisterParseError> {
     let unparsed_register = instruction.get_word(index);
 
     Ok(parse_register(unparsed_register)?)
 }
 
+// Parses a register number from a string to a u8
 fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
     // Test special cases
     match register {
@@ -99,12 +103,15 @@ fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
     }
 }
 
-fn get_immediate(instruction: &str, index: usize) -> Result<u16, ImmediateParseError> {
-    let unparsed_immediate = instruction.get_word(index);
+// Gets the immediate value operand from a given instruction by pulling the
+// last operand with get_word() and parsing it using parse_immediate()
+fn get_immediate(instruction: &str) -> Result<u16, ImmediateParseError> {
+    let unparsed_immediate = instruction.get_word(instruction.count_words());
 
     Ok(parse_immediate(unparsed_immediate)?)
 }
 
+// Parses an immediate value from a string to a u16
 fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
     // Make sure the immediate begins with '#'
     let trimmed_immediate = match immediate.strip_prefix('#') {
@@ -125,10 +132,15 @@ fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
 // Checks whether a given string ends with a ':', denoting that it is a jump label
 fn is_label(line: &str) -> bool {
     // TODO: Possibly add checking for extra ':' at the end
-    line.chars().last().unwrap() == ':'
+    !is_comment(line) && line.trim().chars().last() == Some(':')
 }
 
-// Checks whether a given string is a blank line, a comment, or a label, in which case it will be skipped over by the assembler
-fn is_blankline_comment_label(line: &str) -> bool {
-    line.chars().all(|c| c.is_whitespace()) || line.starts_with("//") || is_label(line)
+// Checks whether a given string starts with a "//", denoting that it is a comment
+fn is_comment(line: &str) -> bool {
+    line.trim().starts_with("//")
+}
+
+// Checks whether a given string is only whitespace, denoting that it is a blank line
+fn is_blankline(line: &str) -> bool {
+    line.chars().all(|c| c.is_whitespace())
 }
