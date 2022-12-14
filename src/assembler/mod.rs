@@ -5,11 +5,7 @@ use std::io::{ BufRead, BufReader };
 use crate::utilities::symbol_table;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::string_methods::SMISString;
-// use self::errors::assembler_error::AssemblerError;
-use self::errors::assembler_error::FileHandlerError;
-// use self::errors::assembler_error::ParseError;
-use self::errors::assembler_error::ImmediateParseError;
-use self::errors::assembler_error::RegisterParseError;
+use self::errors::assembler_error::*;
 
 
 pub fn assemble(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
