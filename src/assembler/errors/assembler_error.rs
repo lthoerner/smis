@@ -29,7 +29,7 @@ pub enum FileHandlerError {
 }
 
 impl From<std::io::Error> for FileHandlerError {
-    fn from(error: std::io::Error) -> Self {
+    fn from(_: std::io::Error) -> Self {
         FileHandlerError::ErrorFileOpenFailed
     }
 }
@@ -37,7 +37,8 @@ impl From<std::io::Error> for FileHandlerError {
 pub enum ParseError {
     MnemonicParseError(MnemonicParseError),
     RegisterParseError(RegisterParseError),
-    ImmediateParseError(ImmediateParseError)
+    ImmediateParseError(ImmediateParseError),
+    LabelParseError(LabelParseError)
 }
 
 impl From<MnemonicParseError> for ParseError {
@@ -58,6 +59,12 @@ impl From<ImmediateParseError> for ParseError {
     }
 }
 
+impl From<LabelParseError> for ParseError {
+    fn from(error: LabelParseError) -> Self {
+        ParseError::LabelParseError(error)
+    }
+}
+
 pub enum MnemonicParseError {
     ErrorMissingMnemonic,
     ErrorUnknownMnemonic
@@ -75,4 +82,9 @@ pub enum ImmediateParseError {
     ErrorInvalidPrefix,
     ErrorNonNumeric,
     ErrorNumberOutOfBounds
+}
+
+pub enum LabelParseError {
+    ErrorLabelNotFound,
+    ErrorMalformedLabel
 }

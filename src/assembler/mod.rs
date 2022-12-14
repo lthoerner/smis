@@ -21,8 +21,8 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
     dbg!("Symbol table: {}", &symbol_table);
 
     // Assemble all the instructions and catch any errors
-    match assemble_instructions(&asm_file, &bin_file, &symbol_table) {
-        Ok(()) => (),
+    match assemble_instructions(&asm_file, &symbol_table) {
+        Ok(_) => (),
         Err(_) => panic!("Something went wrong.")
     };
 
@@ -72,12 +72,14 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
 }
 
 // Reads the ASM file and returns a Vec of the assembled instructions
-fn assemble_instructions(asm_file: &File, bin_file: &File, symbol_table: &SymbolTable) -> Result<(), AssemblerError> {
+fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<Vec<u32>, AssemblerError> {
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
         Ok(()) => (),
         Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
     };
+
+    let mut assembled_instructions = Vec::<u32>::new();
 
     // Line count is stored to give more descriptive error messages
     let mut line_count: u16 = 0;
@@ -105,15 +107,22 @@ fn assemble_instructions(asm_file: &File, bin_file: &File, symbol_table: &Symbol
             None => return Err(AssemblerError::from(MnemonicParseError::ErrorUnknownMnemonic))
         };
 
-        print!("[{:02}] ", line_count);
-        match instruction {
-            Instruction::RFormat { .. } => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
-            Instruction::IFormat { .. } => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
-            Instruction::JFormat { .. } => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
-        }
+        // Assemble the instruction and add it to the Vec
+        assembled_instructions.push(match instruction {
+            Instruction::RFormat{..} => assemble_r_format(line, instruction)?,
+            Instruction::IFormat{..} => assemble_i_format(line, instruction)?,
+            Instruction::JFormat{..} => assemble_j_format(line, instruction, symbol_table)?
+        });
+
+        // print!("[{:02}] ", line_count);
+        // match instruction {
+        //     Instruction::RFormat { .. } => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
+        //     Instruction::IFormat { .. } => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
+        //     Instruction::JFormat { .. } => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
+        // }
     }
 
-    Ok(())
+    Ok(assembled_instructions)
 }
 
 // Assembles all R-Format instructions into a u32
@@ -223,14 +232,13 @@ fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, 
                     // TODO: Strip word 0 and get the rest, because of potential extra garbage
                     let label = match instruction.get_word(1) {
                         Some(lbl) => lbl,
-                        // TODO: Change error type!!!
-                        None => return Err(ParseError::from(ImmediateParseError::ErrorInvalidPrefix))
+                        None => return Err(ParseError::from(LabelParseError::ErrorMalformedLabel))
                     };
 
                     // Get the label address of a given label name, if it is not a HALT
                     *dest_addr = match symbol_table.find_address(label) {
                         Some(addr) => addr,
-                        None => return Err(ParseError::from(ImmediateParseError::ErrorInvalidPrefix))
+                        None => return Err(ParseError::from(LabelParseError::ErrorLabelNotFound))
                     };
                 }
             }
