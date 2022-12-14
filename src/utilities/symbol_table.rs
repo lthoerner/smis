@@ -1,4 +1,5 @@
 // Represents the symbol table, which is a collection of all the Labels in the program
+#[derive(Debug)]
 pub struct SymbolTable {
     labels: Vec<Label>
 }
@@ -23,7 +24,8 @@ impl SymbolTable {
 }
 
 // Represents a label, which is a name given to an address in instruction memory
-struct Label {
+#[derive(Debug)]
+pub struct Label {
     name: String,
     address: u16
 }
