@@ -3,6 +3,11 @@ pub struct SymbolTable {
     labels: Vec<Label>
 }
 
+// Creates an empty SymbolTable
+pub fn new() -> SymbolTable {
+    SymbolTable { labels: Vec::new() }
+}
+
 impl SymbolTable {
     // Adds a label to the symbol table
     pub fn add_label(&mut self, name: &str, address: u16) {
