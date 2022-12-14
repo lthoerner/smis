@@ -1,0 +1,23 @@
+// Test file 1 for toolsuite
+
+
+Start:
+    ADD R1 R2 R3
+    MULTIPLY R1 R1 RZR
+
+    SET RSP #400
+
+Some Label 1:
+    JUMP Start
+    // Test comment 1
+    // Test comment 2:
+
+    COPY R2 R2
+    OR-IMM R2 R1 R12
+
+    Some Nested Label 1:
+
+LOAD R1 R10 #20
+JUMP Some Label 1
+
+HALT
