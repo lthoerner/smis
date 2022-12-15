@@ -10,6 +10,14 @@ use self::errors::assembler_error::*;
 
 
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
+    if !asm_file_name.ends_with(".txt") {
+        panic!("Input file must have a .txt extension.");
+    }
+
+    if !bin_file_name.ends_with("bin") {
+        panic!("Output file must have a .bin extension.");
+    }
+
     // Open the input and output file
     let asm_file = File::options().read(true).open(asm_file_name)?;
     let mut bin_file = File::options().write(true).create(true).open(bin_file_name)?;
@@ -29,7 +37,6 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
 fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<(), FileHandlerError> {
     for instruction in assembled_instructions {
         let instruction = *instruction;
-        // TODO: Add From for file write to FileHandlerError
         match bin_file.write_all(&instruction.to_be_bytes()) {
             Ok(_) => (),
             Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)

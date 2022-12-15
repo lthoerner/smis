@@ -23,6 +23,7 @@ impl From<MnemonicParseError> for AssemblerError {
 }
 
 pub enum FileHandlerError {
+    ErrorFileOperationFailed,
     ErrorFileOpenFailed,
     ErrorFileCreateFailed,
     ErrorFileWriteFailed,
@@ -31,7 +32,7 @@ pub enum FileHandlerError {
 
 impl From<std::io::Error> for FileHandlerError {
     fn from(_: std::io::Error) -> Self {
-        FileHandlerError::ErrorFileOpenFailed
+        FileHandlerError::ErrorFileOperationFailed
     }
 }
 
