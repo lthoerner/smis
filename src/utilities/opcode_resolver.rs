@@ -138,7 +138,7 @@ pub fn get_opcode(mnemonic: &str) -> Option<u8> {
 }
 
 // Uses the given opcode to return an enum with fields based on the instruction format
-pub fn get_instruction_format(opcode: u8) -> Option<Instruction> {
+pub fn get_instruction_container(opcode: u8) -> Option<Instruction> {
     Some(match opcode { 
         OP_COPY
         | OP_ADD

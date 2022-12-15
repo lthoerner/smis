@@ -1,54 +1,53 @@
-mod errors;
-
 use std::fs::File;
 use std::io::{ BufRead, BufReader, Seek, Write };
 use crate::utilities::*;
 use crate::utilities::instruction::Instruction;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::string_methods::SMISString;
-use self::errors::assembler_error::*;
+use crate::utilities::user_messages;
 
 
-pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), FileHandlerError> {
+// Initiates the assembly off the given ASM file into a binary machine code file
+pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) {
     if !asm_file_name.ends_with(".txt") {
-        panic!("Input file must have a .txt extension.");
+        panic!("Input file must have a .txt extension.\n{}", user_messages::USAGE_ERROR);
     }
 
     if !bin_file_name.ends_with("bin") {
-        panic!("Output file must have a .bin extension.");
+        panic!("Output file must have a .bin extension.\n{}", user_messages::USAGE_ERROR);
     }
 
     // Open the input and output file
-    let asm_file = File::options().read(true).open(asm_file_name)?;
-    let mut bin_file = File::options().write(true).create(true).open(bin_file_name)?;
-
-    // Scan all labels into the symbol table
-    let symbol_table = read_labels(&asm_file)?;
-
-    // Assemble all the instructions and catch any errors
-    match assemble_instructions(&asm_file, &symbol_table) {
-        Ok(assembled_instructions) => write_output(&mut bin_file, &assembled_instructions)?,
-        Err(_) => panic!("Something went wrong.")
+    let asm_file = match File::options().read(true).open(asm_file_name) {
+        Ok(file) => file,
+        Err(_) => panic!("Couldn't open the input file. Make sure the file exists and is in the necessary directory.\n{}", user_messages::USAGE_ERROR)
+    };
+    let bin_file = match File::options().write(true).create(true).open(bin_file_name) {
+        Ok(file) => file,
+        Err(_) => panic!("Couldn't open the output file. Make sure the file is not write-protected if it already exists.\n{}", user_messages::USAGE_ERROR)
     };
 
-    Ok(())
+    // Scan all labels into the symbol table
+    let symbol_table = read_labels(&asm_file);
+
+    // Assemble all the instructions and catch any errors
+    assemble_instructions(&asm_file, &symbol_table);
 }
 
-fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<(), FileHandlerError> {
+// Writes the assembled instructions to the output machine code file
+fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) {
     for instruction in assembled_instructions {
         let instruction = *instruction;
 
         match bin_file.write_all(&instruction.to_be_bytes()) {
             Ok(_) => (),
-            Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)
+            Err(_) => panic!("[INTERNAL ERROR] Couldn't write instructions to the binary file.")
         };
     }
-
-    Ok(())
 }
 
 // Scans the input ASM file for labels, and adds them to the symbol table for use later
-fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
+fn read_labels(asm_file: &File) -> SymbolTable {
     // Store the address of the instruction currently being scanned
     let mut current_address: u16 = 0x00;
     
@@ -59,7 +58,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
     
     match scanner.rewind() {
         Ok(()) => (),
-        Err(_) => return Err(FileHandlerError::ErrorInvalidFileContents)
+        Err(_) => panic!("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")
     };
 
     // For each line in the file
@@ -67,7 +66,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
         // Handle any errors for line reading
         let line = match line {
             Ok(text) => text,
-            Err(_) => return Err(FileHandlerError::ErrorInvalidFileContents)
+            Err(_) => panic!("[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.")
         };
 
         let line = line.as_str();
@@ -78,7 +77,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
             symbol_table.add_label(match line.trim().strip_suffix(':') {
                 Some(name) => name,
                 // This should never happen, as the above condition requires the line to end in ':'
-                None => panic!("[INTERNAL ERROR] Label was missing suffix")
+                None => panic!("[INTERNAL ERROR] Label was missing suffix.")
             }, current_address);
         }
 
@@ -87,15 +86,15 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
         if !is_blankline(line) && !is_comment(line) && !is_label(line) { current_address += 2; }
     }
 
-    Ok(symbol_table)
+    symbol_table
 }
 
 // Reads the ASM file and returns a Vec of the assembled instructions
-fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<Vec<u32>, AssemblerError> {
+fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Vec<u32> {
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
         Ok(()) => (),
-        Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
+        Err(_) => panic!("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass.")
     };
 
     let mut assembled_instructions = Vec::<u32>::new();
@@ -109,7 +108,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
 
         let line = match line {
             Ok(text) => text,
-            Err(_) => return Err(AssemblerError::from(FileHandlerError::ErrorInvalidFileContents))
+            Err(_) => panic!("[INTERNAL ERROR] Couldn't read a line from the ASM file for assembler pass.")
         };
 
         // Trim any whitespace from the instruction for parsing
@@ -118,19 +117,22 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         // Skip non-instruction lines
         if is_blankline(line) || is_comment(line) || is_label(line) { continue; }
 
-        let opcode = parse_opcode(line)?;
+        let opcode = match parse_opcode(line) {
+            Some(op) => op,
+            None => panic!("Missing or invalid mnemonic on line {}.", line_count)
+        };
 
         // Gets an Instruction with the necessary format and the given opcode
-        let instruction = match opcode_resolver::get_instruction_format(opcode) {
+        let instruction = match opcode_resolver::get_instruction_container(opcode) {
             Some(instr) => instr,
-            None => return Err(AssemblerError::from(MnemonicParseError::ErrorUnknownMnemonic))
+            None => panic!("[INTERNAL ERROR] Used an invalid opcode to create an instruction container.")
         };
 
         // Assemble the instruction and add it to the Vec
         assembled_instructions.push(match instruction {
-            Instruction::RFormat {..} => assemble_r_format(line, instruction)?,
-            Instruction::IFormat {..} => assemble_i_format(line, instruction)?,
-            Instruction::JFormat {..} => assemble_j_format(line, instruction, symbol_table)?
+            Instruction::RFormat {..} => assemble_r_format(line, instruction, line_count),
+            Instruction::IFormat {..} => assemble_i_format(line, instruction, line_count),
+            Instruction::JFormat {..} => assemble_j_format(line, instruction, line_count, symbol_table)
         });
 
         // print!("[{:02}] ", line_count);
@@ -141,11 +143,11 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         // }
     }
 
-    Ok(assembled_instructions)
+    assembled_instructions
 }
 
 // Assembles all R-Format instructions into a u32
-fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) -> Result<u32, ParseError> {
+fn assemble_r_format(instruction: &str, mut instruction_container: Instruction, line_number: u16) -> u32 {
     // COMPARE instructions do not have an destination register
     // This could be renamed to compare_mode, but there could eventually be other instructions that also have
     // no destination register, so this is a more modular approach
@@ -169,28 +171,37 @@ fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) 
             // If there is no destination register, the r_dest field is left blank
             *r_dest = match no_dest {
                 true => 0x00,
-                false => get_register(instruction, 1)?
+                false => match get_register(instruction, 1) {
+                    Some(reg) => reg,
+                    None => panic!("Missing or invalid destination register on line {}.", line_number)
+                }
             };
 
             // All R-Format instructions are guaranteed to have a first operand register
-            *r_op1 = get_register(instruction, 2 - missing_destination_index_adjustment)?;
+            *r_op1 = match get_register(instruction, 2 - missing_destination_index_adjustment) {
+                Some(reg) => reg,
+                None => panic!("Missing or invalid first register operand on line {}.", line_number)
+            };
 
             // If there is no second operand register, the r_op2 field is left blank
             *r_op2 = match no_op2 {
                 true => 0x00,
-                false => get_register(instruction, 3 - missing_destination_index_adjustment)?
+                false => match get_register(instruction, 3 - missing_destination_index_adjustment) {
+                    Some(reg) => reg,
+                    None => panic!("Missing or invalid second register operand on line {}.", line_number)
+                }
             };
 
-            Ok(instruction_container.encode())
+            instruction_container.encode()
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format"),
-        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format")
+        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format."),
+        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format.")
     }
 }
 
 // Assembles all I-Format instructions into a u32
-fn assemble_i_format(instruction: &str, mut instruction_container: Instruction) -> Result<u32, ParseError> {
+fn assemble_i_format(instruction: &str, mut instruction_container: Instruction, line_number: u16) -> u32 {
     // COMPARE-IMM instructions do not have an destination register
     let mut no_dest = false;
     // Similarly, SET instructions do not have a register operand
@@ -209,28 +220,37 @@ fn assemble_i_format(instruction: &str, mut instruction_container: Instruction) 
             // If there is no destination register, the r_dest field is left blank
             *r_dest = match no_dest {
                 true => 0x00,
-                false => get_register(instruction, 1)?
+                false => match get_register(instruction, 1) {
+                    Some(reg) => reg,
+                    None => panic!("Missing or invalid destination register on line {}.", line_number)
+                }
             };
 
             // If there is no register operand, the r_op1 field is left blank
             *r_op1 = match no_reg_op {
                 true => 0x00,
-                false => get_register(instruction, 2)?
+                false => match get_register(instruction, 2) {
+                    Some(reg) => reg,
+                    None => panic!("Missing or invalid register operand on line {}.", line_number)
+                }
             };
 
             // All I-Format instructions are guaranteed to have an immediate operand
-            *i_op2 = get_immediate(instruction)?;
+            *i_op2 = match get_immediate(instruction) {
+                Some(imm) => imm,
+                None => panic!("Missing or invalid immediate operand on line {}.", line_number)
+            };
 
-            Ok(instruction_container.encode())
+            instruction_container.encode()
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as I-Format"),
-        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as I-Format")
+        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as I-Format."),
+        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as I-Format.")
     }
 }
 
 // Assembles all J-Format instructions into a u32
-fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, symbol_table: &SymbolTable) -> Result<u32, ParseError> {
+fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, line_number: u16, symbol_table: &SymbolTable) -> u32 {
     // HALT instructions do not have a destination label
     let mut no_label = false;
 
@@ -247,110 +267,94 @@ fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, 
             match no_label {
                 true => (),
                 false => {
-                    let label = match instruction.without_first_word() {
-                        Some(lbl) => lbl,
-                        None => return Err(ParseError::from(LabelParseError::ErrorMalformedLabel))
-                    };
+                    let label = instruction.without_first_word();
 
                     // Get the label address of a given label name, if it is not a HALT
-                    *dest_addr = match symbol_table.find_address(label.as_str()) {
+                    *dest_addr = match symbol_table.find_address(label.trim()) {
                         Some(addr) => addr,
-                        None => return Err(ParseError::from(LabelParseError::ErrorLabelNotFound))
+                        None => panic!("Unknown label \"{}\" on line {}.", label, line_number)
                     };
                 }
             }
 
-            Ok(instruction_container.encode())
+            instruction_container.encode()
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as J-Format"),
-        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as J-Format")
+        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as J-Format."),
+        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as J-Format.")
     }
 }
 
 // Takes the instruction, gets the mnemonic, and translates it into an opcode
-fn parse_opcode(instruction: &str) -> Result<u8, MnemonicParseError> {
-    let mnemonic = match instruction.get_word(0) {
-        Some(mnem) => mnem,
-        None => return Err(MnemonicParseError::ErrorMissingMnemonic)
-    };
-
-    match opcode_resolver::get_opcode(mnemonic) {
-        Some(op) => Ok(op),
-        None => Err(MnemonicParseError::ErrorUnknownMnemonic)
+fn parse_opcode(instruction: &str) -> Option<u8> {
+    match instruction.get_word(0) {
+        Some(mnemonic) => opcode_resolver::get_opcode(mnemonic),
+        None => None
     }
 }
 
 // Gets the register number operand from a given instruction by pulling the
 // given operand with get_word() and parsing it using parse_register()
-fn get_register(instruction: &str, index: usize) -> Result<u8, RegisterParseError> {
-    let unparsed_register = match instruction.get_word(index) {
-        Some(reg) => reg,
-        None => return Err(RegisterParseError::ErrorMissingRegisterOperand)
-    };
-
-    Ok(parse_register(unparsed_register)?)
+fn get_register(instruction: &str, index: usize) -> Option<u8> {
+    match instruction.get_word(index) {
+        Some(unparsed_register) => parse_register(unparsed_register),
+        None => None
+    }
 }
 
 // Parses a register number from a string to a u8
-fn parse_register(register: &str) -> Result<u8, RegisterParseError> {
+fn parse_register(register: &str) -> Option<u8> {
     // Test special cases
     match register {
-        "RZR" => return Ok(0),
-        "RSP" => return Ok(15),
-        "RBP" => return Ok(14),
-        "RLR" => return Ok(13),
+        "RZR" => return Some(0),
+        "RSP" => return Some(15),
+        "RBP" => return Some(14),
+        "RLR" => return Some(13),
         _ => ()
     }
 
     // Make sure the register begins with 'R'
     let trimmed_register = match register.strip_prefix('R') {
         Some(trim) => trim,
-        None => return Err(RegisterParseError::ErrorInvalidPrefix)
+        None => return None
     };
 
     // Make sure the value after the prefix is numerical and within u8 bounds
     let register_num = match trimmed_register.parse::<u8>() {
         Ok(val) => val,
-        Err(err) => match err.kind() {
-            std::num::IntErrorKind::PosOverflow => return Err(RegisterParseError::ErrorNumberOutOfBounds),
-            _ => return Err(RegisterParseError::ErrorNonNumeric)
-        }
+        Err(err) => return None
     };
 
     // Make sure the register exists (0-15)
     match register_num > 15 {
-        true => Err(RegisterParseError::ErrorNumberOutOfBounds),
-        false => Ok(register_num)
+        true => None,
+        false => Some(register_num)
     }
 }
 
 // Gets the immediate value operand from a given instruction by pulling the
 // last operand with get_word() and parsing it using parse_immediate()
-fn get_immediate(instruction: &str) -> Result<u16, ImmediateParseError> {
-    let unparsed_immediate = match instruction.get_word(instruction.count_words() - 1) {
-        Some(imm) => imm,
-        None => return Err(ImmediateParseError::ErrorMissingImmediateOperand)
-    };
-
-    Ok(parse_immediate(unparsed_immediate)?)
+fn get_immediate(instruction: &str) -> Option<u16> {
+    // TODO: There could be more words between other operands and the immediate operand
+    // Gets the last word of the line and attempts to parse it into an immediate value
+    match instruction.get_word(instruction.count_words() - 1) {
+        Some(unparsed_immediate) => parse_immediate(unparsed_immediate),
+        None => None
+    }
 }
 
 // Parses an immediate value from a string to a u16
-fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
+fn parse_immediate(immediate: &str) -> Option<u16> {
     // Make sure the immediate begins with '#'
     let trimmed_immediate = match immediate.strip_prefix('#') {
         Some(trim) => trim,
-        None => return Err(ImmediateParseError::ErrorInvalidPrefix)
+        None => return None
     };
 
     // Make sure the value after the prefix is numerical and within u16 bounds, then return it
     match trimmed_immediate.parse::<u16>() {
-        Ok(val) => Ok(val),
-        Err(err) => match err.kind() {
-            std::num::IntErrorKind::PosOverflow => Err(ImmediateParseError::ErrorNumberOutOfBounds),
-            _ => Err(ImmediateParseError::ErrorNonNumeric)
-        }
+        Ok(val) => Some(val),
+        Err(err) => None
     }
 }
 
