@@ -56,6 +56,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable, FileHandlerError> {
     let mut symbol_table = symbol_table::new();
     
     let mut scanner = BufReader::new(asm_file);
+    
     match scanner.rewind() {
         Ok(()) => (),
         Err(_) => return Err(FileHandlerError::ErrorInvalidFileContents)
@@ -355,15 +356,11 @@ fn parse_immediate(immediate: &str) -> Result<u16, ImmediateParseError> {
 
 // Checks whether a given string ends with a ':', denoting that it is a jump label
 fn is_label(line: &str) -> bool {
-    // Get the first word of the line, which could be the label
     // Forbids labels from containing whitespace
-    let first_word = match line.get_word(0) {
-        Some(word) => word,
-        None => return false
-    };
+    if line.count_words() > 1 { return false; }
 
     // TODO: Possibly add checking for extra ':' at the end
-    !is_comment(line) && first_word.chars().last() == Some(':')
+    !is_comment(line) && line.chars().last() == Some(':')
 }
 
 // Checks whether a given string starts with a "//", denoting that it is a comment
