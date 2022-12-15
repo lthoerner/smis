@@ -37,6 +37,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<(), F
 fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<(), FileHandlerError> {
     for instruction in assembled_instructions {
         let instruction = *instruction;
+
         match bin_file.write_all(&instruction.to_be_bytes()) {
             Ok(_) => (),
             Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)
@@ -126,16 +127,16 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
 
         // Assemble the instruction and add it to the Vec
         assembled_instructions.push(match instruction {
-            Instruction::RFormat{..} => assemble_r_format(line, instruction)?,
-            Instruction::IFormat{..} => assemble_i_format(line, instruction)?,
-            Instruction::JFormat{..} => assemble_j_format(line, instruction, symbol_table)?
+            Instruction::RFormat {..} => assemble_r_format(line, instruction)?,
+            Instruction::IFormat {..} => assemble_i_format(line, instruction)?,
+            Instruction::JFormat {..} => assemble_j_format(line, instruction, symbol_table)?
         });
 
         // print!("[{:02}] ", line_count);
         // match instruction {
-        //     Instruction::RFormat { .. } => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
-        //     Instruction::IFormat { .. } => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
-        //     Instruction::JFormat { .. } => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
+        //     Instruction::RFormat {..} => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
+        //     Instruction::IFormat {..} => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
+        //     Instruction::JFormat {..} => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
         // }
     }
 
@@ -179,11 +180,11 @@ fn assemble_r_format(instruction: &str, mut instruction_container: Instruction) 
                 false => get_register(instruction, 3 - missing_destination_index_adjustment)?
             };
 
-            return Ok(instruction_container.encode());
+            Ok(instruction_container.encode())
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::IFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format"),
-        Instruction::JFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format")
+        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as R-Format"),
+        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as R-Format")
     }
 }
 
@@ -219,11 +220,11 @@ fn assemble_i_format(instruction: &str, mut instruction_container: Instruction) 
             // All I-Format instructions are guaranteed to have an immediate operand
             *i_op2 = get_immediate(instruction)?;
 
-            return Ok(instruction_container.encode());
+            Ok(instruction_container.encode())
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::RFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as I-Format"),
-        Instruction::JFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as I-Format")
+        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as I-Format"),
+        Instruction::JFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble J-Format instruction as I-Format")
     }
 }
 
@@ -245,26 +246,24 @@ fn assemble_j_format(instruction: &str, mut instruction_container: Instruction, 
             match no_label {
                 true => (),
                 false => {
-                    // Get word 1, which is expected to be a label
-                    // TODO: Strip word 0 and get the rest, because of potential extra garbage
-                    let label = match instruction.get_word(1) {
+                    let label = match instruction.without_first_word() {
                         Some(lbl) => lbl,
                         None => return Err(ParseError::from(LabelParseError::ErrorMalformedLabel))
                     };
 
                     // Get the label address of a given label name, if it is not a HALT
-                    *dest_addr = match symbol_table.find_address(label) {
+                    *dest_addr = match symbol_table.find_address(label.as_str()) {
                         Some(addr) => addr,
                         None => return Err(ParseError::from(LabelParseError::ErrorLabelNotFound))
                     };
                 }
             }
 
-            return Ok(instruction_container.encode());
+            Ok(instruction_container.encode())
         },
         // These should never happen, as the function is only called from a match block that switches based on the enum variant
-        Instruction::RFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as J-Format"),
-        Instruction::IFormat { .. } => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as J-Format")
+        Instruction::RFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble R-Format instruction as J-Format"),
+        Instruction::IFormat {..} => panic!("[INTERNAL ERROR] Attempted to assemble I-Format instruction as J-Format")
     }
 }
 

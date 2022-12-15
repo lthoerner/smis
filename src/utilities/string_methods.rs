@@ -1,7 +1,7 @@
 pub trait SMISString {
     fn count_words(&self) -> usize;
     fn get_word(&self, index: usize) -> Option<&str>;
-    fn without_first_word(&self) -> String;
+    fn without_first_word(&self) -> Option<String>;
 }
 
 impl<'a> SMISString for &'a str {
@@ -15,11 +15,11 @@ impl<'a> SMISString for &'a str {
     }
     
     // TODO: Option?
-    fn without_first_word(&self) -> String {
+    fn without_first_word(&self) -> Option<String> {
         // Split the string into words and collect the words into a vector
         let words: Vec<&str> = self.split_whitespace().collect();
 
         // Join the words into a string, starting from the second word
-        words[1..].join(" ")
+        Some(words[1..].join(" "))
     }
 }
