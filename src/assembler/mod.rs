@@ -22,7 +22,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) {
         Ok(file) => file,
         Err(_) => panic!("Couldn't open the input file. Make sure the file exists and is in the necessary directory.\n{}", user_messages::USAGE_ERROR)
     };
-    let bin_file = match File::options().write(true).create(true).open(bin_file_name) {
+    let mut bin_file = match File::options().write(true).create(true).open(bin_file_name) {
         Ok(file) => file,
         Err(_) => panic!("Couldn't open the output file. Make sure the file is not write-protected if it already exists.\n{}", user_messages::USAGE_ERROR)
     };
@@ -31,7 +31,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) {
     let symbol_table = read_labels(&asm_file);
 
     // Assemble all the instructions and catch any errors
-    assemble_instructions(&asm_file, &symbol_table);
+    write_output(&mut bin_file, &assemble_instructions(&asm_file, &symbol_table));
 }
 
 // Writes the assembled instructions to the output machine code file
@@ -322,7 +322,7 @@ fn parse_register(register: &str) -> Option<u8> {
     // Make sure the value after the prefix is numerical and within u8 bounds
     let register_num = match trimmed_register.parse::<u8>() {
         Ok(val) => val,
-        Err(err) => return None
+        Err(_) => return None
     };
 
     // Make sure the register exists (0-15)
@@ -354,7 +354,7 @@ fn parse_immediate(immediate: &str) -> Option<u16> {
     // Make sure the value after the prefix is numerical and within u16 bounds, then return it
     match trimmed_immediate.parse::<u16>() {
         Ok(val) => Some(val),
-        Err(err) => None
+        Err(_) => None
     }
 }
 

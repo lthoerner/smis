@@ -51,6 +51,7 @@ pub const OP_JUMP_LINK: u8          = 0x23;
 pub const OP_HALT: u8               = 0x24;
 
 
+#[allow(dead_code)]
 // Gets the associated mnemonic for a given opcode
 pub fn get_mnemonic(opcode: u8) -> Option<&'static str> {
     Some(match opcode { 
