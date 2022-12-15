@@ -1,7 +1,6 @@
-// TODO: Turn these off when no longer needed
+// This is here because the compiler complains about the crate being called "SMIS" instead of "smis",
+// despite the fact that it's an acronym and should be all caps
 #![allow(non_snake_case)]
-// #![allow(dead_code)]
-// #![allow(unused_variables)]
 
 
 use std::path::Path;
@@ -15,6 +14,8 @@ mod utilities;
 
 
 fn main() {
+    let now = std::time::Instant::now();
+
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 4 {
@@ -37,4 +38,6 @@ fn main() {
         // "--disassemble" | "-d" => disassembler::disassemble(input_file, output_file),
         _ => panic!("Invalid target \"{}\"!\n{}", target, user_messages::USAGE_ERROR)
     }
+
+    println!("Time elapsed: {}ns", now.elapsed().as_nanos());
 }

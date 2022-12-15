@@ -3,7 +3,7 @@
 
 Start:
     ADD R1 R2 R3
-    MULTIPLY R1 R1 RZR
+    MULTIPLY R15 R1 RZR
 
     SET RSP #400
 
