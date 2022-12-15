@@ -2,16 +2,13 @@
 // despite the fact that it's an acronym and should be all caps
 #![allow(non_snake_case)]
 
-
 use std::path::Path;
 use utilities::user_messages;
-
 
 mod assembler;
 mod disassembler;
 mod emulator;
 mod utilities;
-
 
 fn main() {
     let now = std::time::Instant::now();
@@ -19,7 +16,10 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 4 {
-        panic!("Incorrect number of arguments!\n{}", user_messages::USAGE_ERROR);
+        panic!(
+            "Incorrect number of arguments!\n{}",
+            user_messages::USAGE_ERROR
+        );
     }
 
     let target = &args[1];
@@ -34,9 +34,13 @@ fn main() {
         "--assemble" | "-a" => {
             assembler::start_assembler(input_file, output_file);
             println!("File assembled successfully!")
-        },
+        }
         // "--disassemble" | "-d" => disassembler::disassemble(input_file, output_file),
-        _ => panic!("Invalid target \"{}\"!\n{}", target, user_messages::USAGE_ERROR)
+        _ => panic!(
+            "Invalid target \"{}\"!\n{}",
+            target,
+            user_messages::USAGE_ERROR
+        ),
     }
 
     println!("Time elapsed: {}ns", now.elapsed().as_nanos());

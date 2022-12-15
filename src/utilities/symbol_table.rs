@@ -1,7 +1,7 @@
 // Represents the symbol table, which is a collection of all the Labels in the program
 #[derive(Debug)]
 pub struct SymbolTable {
-    labels: Vec<Label>
+    labels: Vec<Label>,
 }
 
 // Creates an empty SymbolTable
@@ -14,10 +14,7 @@ impl SymbolTable {
     pub fn add_label(&mut self, name: &str, address: u16) {
         let name = name.to_string();
 
-        let lbl = Label {
-            name,
-            address
-        };
+        let lbl = Label { name, address };
 
         self.labels.push(lbl);
     }
@@ -25,7 +22,9 @@ impl SymbolTable {
     // Gets the corresponding label address in the symbol table for a given label name
     pub fn find_address(&self, requested_name: &str) -> Option<u16> {
         for label in &self.labels {
-            if label.name == requested_name { return Some(label.address); }
+            if label.name == requested_name {
+                return Some(label.address);
+            }
         }
 
         None
@@ -36,5 +35,5 @@ impl SymbolTable {
 #[derive(Debug)]
 pub struct Label {
     name: String,
-    address: u16
+    address: u16,
 }

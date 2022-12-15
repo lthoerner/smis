@@ -13,7 +13,7 @@ impl<'a> SMISString for &'a str {
         // Split the string into words and pick the word at the given index
         self.split_whitespace().nth(index)
     }
-    
+
     fn without_first_word(&self) -> String {
         // Split the string into words and collect the words into a vector
         let words: Vec<&str> = self.split_whitespace().collect();
