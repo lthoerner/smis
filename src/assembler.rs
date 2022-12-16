@@ -2,6 +2,7 @@ use crate::utilities::instruction::*;
 use crate::utilities::string_methods::SMISString;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::*;
+use crate::errors::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, Write};
 

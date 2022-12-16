@@ -8,6 +8,7 @@ use utilities::user_messages;
 mod assembler;
 mod disassembler;
 mod emulator;
+mod errors;
 mod utilities;
 
 fn main() {
