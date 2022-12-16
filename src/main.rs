@@ -12,7 +12,7 @@ mod errors;
 mod utilities;
 
 fn main() {
-    let now = std::time::Instant::now();
+    // let now = std::time::Instant::now();
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -33,8 +33,14 @@ fn main() {
 
     match target.as_str() {
         "--assemble" | "-a" => {
-            assembler::start_assembler(input_file, output_file);
-            println!("File assembled successfully!")
+            match assembler::start_assembler(input_file, output_file) {
+                Ok(_) => println!("File assembled successfully!"),
+                Err(err) => {
+                    for error in err.chain().rev().skip(1) {
+                        println!("{}", error);
+                    }
+                },
+            };
         }
         // "--disassemble" | "-d" => disassembler::disassemble(input_file, output_file),
         _ => panic!(
@@ -44,5 +50,5 @@ fn main() {
         ),
     }
 
-    println!("Time elapsed: {}ns", now.elapsed().as_nanos());
+    // println!("Time elapsed: {}ns", now.elapsed().as_nanos());
 }
