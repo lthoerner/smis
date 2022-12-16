@@ -1,7 +1,6 @@
 use crate::utilities::instruction::*;
 use crate::utilities::string_methods::SMISString;
 use crate::utilities::symbol_table::SymbolTable;
-use crate::utilities::user_messages;
 use crate::utilities::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, Write};
