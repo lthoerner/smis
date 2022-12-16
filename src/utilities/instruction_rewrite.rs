@@ -4,6 +4,7 @@ pub enum InstructionContainer {
     JFormat(JFormat),
 }
 
+#[derive(Default)]
 pub struct RFormat {
     pub opcode: u8,
     pub r_dest: u8,
@@ -20,6 +21,7 @@ impl RFormat {
     }
 }
 
+#[derive(Default)]
 pub struct IFormat {
     pub opcode: u8,
     pub r_dest: u8,
@@ -36,6 +38,7 @@ impl IFormat {
     }
 }
 
+#[derive(Default)]
 pub struct JFormat {
     pub opcode: u8,
     pub dest_addr: u16,

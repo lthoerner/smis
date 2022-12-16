@@ -1,5 +1,4 @@
-use crate::utilities::instruction::Instruction;
-use crate::utilities::instruction_rewrite::InstructionContainer;
+use crate::utilities::instruction_rewrite::*;
 use crate::utilities::string_methods::SMISString;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::user_messages;
@@ -150,19 +149,16 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Vec<u32
 
         // Assemble the instruction and add it to the Vec
         assembled_instructions.push(match instruction {
-            Instruction::RFormat { .. } => assemble_r_format(line, instruction, line_count),
-            Instruction::IFormat { .. } => assemble_i_format(line, instruction, line_count),
-            Instruction::JFormat { .. } => {
-                assemble_j_format(line, instruction, line_count, symbol_table)
+            InstructionContainer::RFormat(container) => {
+                container.assemble(line, line_count).encode()
+            }
+            InstructionContainer::IFormat(container) => {
+                container.assemble(line, line_count).encode()
+            }
+            InstructionContainer::JFormat(container) => {
+                container.assemble(line, line_count, symbol_table).encode()
             }
         });
-
-        // print!("[{:02}] ", line_count);
-        // match instruction {
-        //     Instruction::RFormat {..} => println!("{:<40} is an R-Format: 0x{:08X}", line, assemble_r_format(line, instruction)?),
-        //     Instruction::IFormat {..} => println!("{:<40} is an I-Format: 0x{:08X}", line, assemble_i_format(line, instruction)?),
-        //     Instruction::JFormat {..} => println!("{:<40} is a J-Format:  0x{:08X}", line, assemble_j_format(line, instruction, &symbol_table)?)
-        // }
     }
 
     assembled_instructions
@@ -171,7 +167,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Vec<u32
 // TODO: Add anyhow error handling
 impl instruction_rewrite::RFormat {
     // Assembles all R-Format instructions into a u32
-    fn assemble(&mut self, instruction_text: &str, line_number: u16) {
+    fn assemble(mut self, instruction_text: &str, line_number: u16) -> Self {
         // COMPARE instructions do not have an destination register
         // This could be renamed to compare_mode, but there could eventually be other instructions that also have
         // no destination register, so this is a more modular approach
@@ -202,7 +198,8 @@ impl instruction_rewrite::RFormat {
         };
 
         // All R-Format instructions are guaranteed to have a first operand register
-        self.r_op1 = match get_register(instruction_text, 2 - missing_destination_index_adjustment) {
+        self.r_op1 = match get_register(instruction_text, 2 - missing_destination_index_adjustment)
+        {
             Some(reg) => reg,
             None => panic!(
                 "Missing or invalid first register operand on line {}.",
@@ -223,12 +220,14 @@ impl instruction_rewrite::RFormat {
                 }
             }
         };
+
+        self
     }
 }
 
 impl instruction_rewrite::IFormat {
     // Assembles all I-Format instructions into a u32
-    fn assemble(&mut self, instruction_text: &str, line_number: u16) {
+    fn assemble(mut self, instruction_text: &str, line_number: u16) -> Self {
         // COMPARE-IMM instructions do not have an destination register
         let mut no_dest = false;
         // Similarly, SET instructions do not have a register operand
@@ -273,12 +272,19 @@ impl instruction_rewrite::IFormat {
                 line_number
             ),
         };
+
+        self
     }
 }
 
 impl instruction_rewrite::JFormat {
     // Assembles all J-Format instructions into a u32
-    fn assemble(&mut self, instruction_text: &str, line_number: u16, symbol_table: &SymbolTable) {
+    fn assemble(
+        mut self,
+        instruction_text: &str,
+        line_number: u16,
+        symbol_table: &SymbolTable,
+    ) -> Self {
         // HALT instructions do not have a destination label
         let mut no_label = false;
 
@@ -302,6 +308,7 @@ impl instruction_rewrite::JFormat {
             }
         }
 
+        self
     }
 }
 

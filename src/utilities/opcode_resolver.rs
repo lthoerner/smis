@@ -1,4 +1,4 @@
-use super::instruction::Instruction;
+use super::instruction_rewrite::*;
 
 // Opcode constants
 pub const OP_SET: u8 = 0x01;
@@ -137,30 +137,28 @@ pub fn get_opcode(mnemonic: &str) -> Option<u8> {
 }
 
 // Uses the given opcode to return an enum with fields based on the instruction format
-pub fn get_instruction_container(opcode: u8) -> Option<Instruction> {
+pub fn get_instruction_container(opcode: u8) -> Option<InstructionContainer> {
     Some(match opcode {
         OP_COPY | OP_ADD | OP_SUBTRACT | OP_MULTIPLY | OP_DIVIDE | OP_MODULO | OP_COMPARE
         | OP_SHIFT_LEFT | OP_SHIFT_RIGHT | OP_AND | OP_OR | OP_XOR | OP_NAND | OP_NOR | OP_NOT => {
-            Instruction::RFormat {
+            InstructionContainer::RFormat(RFormat {
                 opcode,
-                r_dest: 0,
-                r_op1: 0,
-                r_op2: 0,
-            }
+                ..RFormat::default()
+            })
         }
         OP_SET | OP_ADD_IMM | OP_SUBTRACT_IMM | OP_MULTIPLY_IMM | OP_DIVIDE_IMM | OP_MODULO_IMM
         | OP_COMPARE_IMM | OP_SHIFT_LEFT_IMM | OP_SHIFT_RIGHT_IMM | OP_AND_IMM | OP_OR_IMM
-        | OP_XOR_IMM | OP_NAND_IMM | OP_NOR_IMM | OP_LOAD | OP_STORE => Instruction::IFormat {
-            opcode,
-            r_dest: 0,
-            r_op1: 0,
-            i_op2: 0,
-        },
-        OP_JUMP | OP_JUMP_IF_ZERO | OP_JUMP_IF_NOTZERO | OP_JUMP_LINK | OP_HALT => {
-            Instruction::JFormat {
+        | OP_XOR_IMM | OP_NAND_IMM | OP_NOR_IMM | OP_LOAD | OP_STORE => {
+            InstructionContainer::IFormat(IFormat {
                 opcode,
-                dest_addr: 0,
-            }
+                ..IFormat::default()
+            })
+        }
+        OP_JUMP | OP_JUMP_IF_ZERO | OP_JUMP_IF_NOTZERO | OP_JUMP_LINK | OP_HALT => {
+            InstructionContainer::JFormat(JFormat {
+                opcode,
+                ..JFormat::default()
+            })
         }
         _ => return None,
     })
