@@ -16,7 +16,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
             .context(user_messages::USAGE_ERROR);
     }
 
-    if !bin_file_name.ends_with("bin") {
+    if !bin_file_name.ends_with(".bin") {
         return Err(FileHandlerError::ErrorInvalidExtension)
             .context("Output file must have a .bin extension.")
             .context(user_messages::USAGE_ERROR);
