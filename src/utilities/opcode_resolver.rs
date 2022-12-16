@@ -1,4 +1,4 @@
-use super::instruction_rewrite::*;
+use super::instruction::*;
 
 // Opcode constants
 pub const OP_SET: u8 = 0x01;

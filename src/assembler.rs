@@ -1,4 +1,4 @@
-use crate::utilities::instruction_rewrite::*;
+use crate::utilities::instruction::*;
 use crate::utilities::string_methods::SMISString;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::user_messages;
@@ -165,7 +165,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Vec<u32
 }
 
 // TODO: Add anyhow error handling
-impl instruction_rewrite::RFormat {
+impl instruction::RFormat {
     // Assembles all R-Format instructions into a u32
     fn assemble(mut self, instruction_text: &str, line_number: u16) -> Self {
         // COMPARE instructions do not have an destination register
@@ -225,7 +225,7 @@ impl instruction_rewrite::RFormat {
     }
 }
 
-impl instruction_rewrite::IFormat {
+impl instruction::IFormat {
     // Assembles all I-Format instructions into a u32
     fn assemble(mut self, instruction_text: &str, line_number: u16) -> Self {
         // COMPARE-IMM instructions do not have an destination register
@@ -277,7 +277,7 @@ impl instruction_rewrite::IFormat {
     }
 }
 
-impl instruction_rewrite::JFormat {
+impl instruction::JFormat {
     // Assembles all J-Format instructions into a u32
     fn assemble(
         mut self,
