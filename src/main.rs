@@ -39,7 +39,7 @@ fn main() {
                     for error in err.chain().rev().skip(1) {
                         println!("{}", error);
                     }
-                },
+                }
             };
         }
         // "--disassemble" | "-d" => disassembler::disassemble(input_file, output_file),

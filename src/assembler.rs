@@ -1,8 +1,8 @@
+use crate::errors::*;
 use crate::utilities::instruction::*;
 use crate::utilities::string_methods::SMISString;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::*;
-use crate::errors::*;
 use anyhow::Context;
 use anyhow::Result;
 use std::fs::File;
@@ -12,12 +12,14 @@ use std::io::{BufRead, BufReader, Seek, Write};
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
     if !asm_file_name.ends_with(".txt") {
         return Err(FileHandlerError::ErrorInvalidExtension)
-            .context("Input file must have a .txt extension.");
+            .context("Input file must have a .txt extension.")
+            .context(user_messages::USAGE_ERROR);
     }
 
     if !bin_file_name.ends_with("bin") {
         return Err(FileHandlerError::ErrorInvalidExtension)
-            .context("Output file must have a .bin extension.");
+            .context("Output file must have a .bin extension.")
+            .context(user_messages::USAGE_ERROR);
     }
 
     // Open/create the input and output file
@@ -25,19 +27,24 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
         Ok(file) => file,
         Err(_) => return Err(FileHandlerError::ErrorFileOpenFailed)
             .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
+            .context(user_messages::USAGE_ERROR)
     };
 
     let mut bin_file = match File::options().write(true).create(true).open(bin_file_name) {
         Ok(file) => file,
         Err(_) => return Err(FileHandlerError::ErrorFileCreateFailed)
             .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
+            .context(user_messages::USAGE_ERROR)
     };
 
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&asm_file)?;
 
     // Assemble all the instructions and catch any errors
-    write_output(&mut bin_file, &assemble_instructions(&asm_file, &symbol_table)?)?;
+    write_output(
+        &mut bin_file,
+        &assemble_instructions(&asm_file, &symbol_table)?,
+    )?;
 
     Ok(())
 }
@@ -47,8 +54,10 @@ fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Resul
     for &instruction in assembled_instructions {
         match bin_file.write_all(&instruction.to_be_bytes()) {
             Ok(_) => (),
-            Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)
-                .context("[INTERNAL ERROR] Couldn't write instructions to the binary file."),
+            Err(_) => {
+                return Err(FileHandlerError::ErrorFileWriteFailed)
+                    .context("[INTERNAL ERROR] Couldn't write instructions to the binary file.")
+            }
         };
     }
 
@@ -67,8 +76,10 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
 
     match scanner.rewind() {
         Ok(()) => (),
-        Err(_) => return Err(FileHandlerError::ErrorFileRewindFailed)
-            .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass."),
+        Err(_) => {
+            return Err(FileHandlerError::ErrorFileRewindFailed)
+                .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")
+        }
     };
 
     // For each line in the file
@@ -76,8 +87,9 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
         // Handle any errors for line reading
         let line = match line {
             Ok(text) => text,
-            Err(_) => return Err(FileHandlerError::ErrorFileReadFailed)
-                .context("[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass."),
+            Err(_) => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                "[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.",
+            ),
         };
 
         let line = line.as_str();
@@ -89,8 +101,10 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
                 match line.trim().strip_suffix(':') {
                     Some(name) => name,
                     // This should never happen, as the above condition requires the line to end in ':'
-                    None => return Err(SymbolTableError::ErrorCouldNotAddLabel)
-                        .context("[INTERNAL ERROR] Label was missing suffix."),
+                    None => {
+                        return Err(SymbolTableError::ErrorCouldNotAddLabel)
+                            .context("[INTERNAL ERROR] Label was missing suffix.")
+                    }
                 },
                 current_address,
             );
@@ -111,8 +125,10 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
         Ok(()) => (),
-        Err(_) => return Err(FileHandlerError::ErrorFileRewindFailed)
-            .context("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass."),
+        Err(_) => {
+            return Err(FileHandlerError::ErrorFileRewindFailed)
+                .context("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass.")
+        }
     };
 
     let mut assembled_instructions = Vec::<u32>::new();
@@ -124,11 +140,13 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
     for line in scanner.lines() {
         line_count += 1;
 
-        let line = match line {
-            Ok(text) => text,
-            Err(_) => return Err(FileHandlerError::ErrorFileReadFailed)
-                .context("[INTERNAL ERROR] Couldn't read a line from the ASM file for assembler pass."),
-        };
+        let line =
+            match line {
+                Ok(text) => text,
+                Err(_) => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                    "[INTERNAL ERROR] Couldn't read a line from the ASM file for assembler pass.",
+                ),
+            };
 
         // Trim any whitespace from the instruction for parsing
         let line = line.trim();
@@ -140,38 +158,32 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
 
         let opcode = match parse_opcode(line) {
             Ok(op) => op,
-            Err(err) => return Err(err)
-                .context(format!("On line: {}", line_count)),
+            Err(err) => return Err(err).context(format!("On line: {}", line_count)),
         };
 
         // Gets an Instruction with the necessary format and the given opcode
-        let instruction = match opcode_resolver::get_instruction_container(opcode) {
-            Some(instr) => instr,
-            None => return Err(OpcodeParseError::ErrorUnknownOpcode)
-                .context("[INTERNAL ERROR] Used an invalid opcode to create an instruction container."),
-        };
+        let instruction =
+            match opcode_resolver::get_instruction_container(opcode) {
+                Some(instr) => instr,
+                None => return Err(OpcodeParseError::ErrorUnknownOpcode).context(
+                    "[INTERNAL ERROR] Used an invalid opcode to create an instruction container.",
+                ),
+            };
 
         // Assemble the instruction and add it to the Vec
         assembled_instructions.push(match instruction {
-            InstructionContainer::RFormat(container) => {
-                match container.assemble(line) {
-                    Ok(assembled_instruction) => assembled_instruction.encode(),
-                    Err(err) => return Err(err)
-                        .context(format!("On line: {}", line_count))
-                }
-            }
-            InstructionContainer::IFormat(container) => {
-                match container.assemble(line) {
-                    Ok(assembled_instruction) => assembled_instruction.encode(),
-                    Err(err) => return Err(err)
-                        .context(format!("On line: {}", line_count))
-                }
-            }
+            InstructionContainer::RFormat(container) => match container.assemble(line) {
+                Ok(assembled_instruction) => assembled_instruction.encode(),
+                Err(err) => return Err(err).context(format!("On line: {}", line_count)),
+            },
+            InstructionContainer::IFormat(container) => match container.assemble(line) {
+                Ok(assembled_instruction) => assembled_instruction.encode(),
+                Err(err) => return Err(err).context(format!("On line: {}", line_count)),
+            },
             InstructionContainer::JFormat(container) => {
                 match container.assemble(line, symbol_table) {
                     Ok(assembled_instruction) => assembled_instruction.encode(),
-                    Err(err) => return Err(err)
-                        .context(format!("On line: {}", line_count))
+                    Err(err) => return Err(err).context(format!("On line: {}", line_count)),
                 }
             }
         });
@@ -215,7 +227,7 @@ impl instruction::RFormat {
             true => 0x00,
             false => get_register(instruction_text, 3 - missing_destination_index_adjustment)?,
         };
-        
+
         Ok(self)
     }
 }
@@ -244,7 +256,7 @@ impl instruction::IFormat {
         // If there is no register operand, the r_op1 field is left blank
         self.r_op1 = match no_reg_op {
             true => 0x00,
-            false => get_register(instruction_text, 2)?
+            false => get_register(instruction_text, 2)?,
         };
 
         // All I-Format instructions are guaranteed to have an immediate operand
@@ -275,9 +287,11 @@ impl instruction::JFormat {
                 // Get the label address of a given label name, if it is not a HALT
                 self.dest_addr = match symbol_table.find_address(label.trim()) {
                     Some(addr) => addr,
-                    None => return Err(SymbolTableError::ErrorLabelNotFound)
-                        .context("Label not found in symbol table.")
-                        .context(format!("At: '{}'", label)),
+                    None => {
+                        return Err(SymbolTableError::ErrorLabelNotFound)
+                            .context("Label not found in symbol table.")
+                            .context(format!("At: '{}'", label))
+                    }
                 };
             }
         }
@@ -327,16 +341,18 @@ fn parse_register(register: &str) -> Result<u8> {
     // Make sure the register begins with 'R'
     let trimmed_register = match register.strip_prefix('R') {
         Some(trim) => trim,
-        None => return Err(RegisterParseError::ErrorInvalidPrefix)
-            .context("Invalid register prefix."),
+        None => {
+            return Err(RegisterParseError::ErrorInvalidPrefix).context("Invalid register prefix.")
+        }
     };
 
     // TODO: Different error message for out of u8 bounds
     // Make sure the value after the prefix is numerical and within u8 bounds
     let register_num = match trimmed_register.parse::<u8>() {
         Ok(val) => val,
-        Err(_) => return Err(RegisterParseError::ErrorNonNumeric)
-            .context("Non-numeric register number."),
+        Err(_) => {
+            return Err(RegisterParseError::ErrorNonNumeric).context("Non-numeric register number.")
+        }
     };
 
     // Make sure the register exists (0-15)
@@ -368,15 +384,16 @@ fn parse_immediate(immediate: &str) -> Result<u16> {
     // Make sure the immediate begins with '#'
     let trimmed_immediate = match immediate.strip_prefix('#') {
         Some(trim) => trim,
-        None => return Err(ImmediateParseError::ErrorInvalidPrefix)
-            .context("Invalid immediate prefix."),
+        None => {
+            return Err(ImmediateParseError::ErrorInvalidPrefix)
+                .context("Invalid immediate prefix.")
+        }
     };
 
     // Make sure the value after the prefix is numerical and within u16 bounds, then return it
     match trimmed_immediate.parse::<u16>() {
         Ok(immediate_value) => Ok(immediate_value),
-        Err(_) => Err(ImmediateParseError::ErrorNonNumeric)
-            .context("Non-numeric immediate value."),
+        Err(_) => Err(ImmediateParseError::ErrorNonNumeric).context("Non-numeric immediate value."),
     }
 }
 
