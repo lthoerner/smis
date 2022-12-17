@@ -71,7 +71,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     // Store the address of the instruction currently being scanned
     let mut current_address: u16 = 0x00;
 
-    // Stores all labels found in the file
+    // Stores all labels found in the file along with their corresponding instruction addressses
     let mut symbol_table = symbol_table::new();
 
     let mut scanner = BufReader::new(asm_file);
