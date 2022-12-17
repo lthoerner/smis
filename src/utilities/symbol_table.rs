@@ -31,10 +31,10 @@ impl SymbolTable {
     }
 
     // Gets the corresponding label name in the symbol table for a given label address
-    pub fn find_name(&self, requested_address: u16) -> Option<String> {
+    pub fn find_name(&self, requested_address: u16) -> Option<&String> {
         for label in &self.labels {
             if label.address == requested_address {
-                return Some(label.name);
+                return Some(&label.name);
             }
         }
 

@@ -163,3 +163,10 @@ pub fn get_instruction_container(opcode: u8) -> Option<InstructionContainer> {
         _ => return None,
     })
 }
+
+pub fn is_jump(opcode: u8) -> bool {
+    match get_instruction_container(opcode) {
+        Some(InstructionContainer::JFormat(_)) => true,
+        _ => false,
+    }
+}
