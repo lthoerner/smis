@@ -1,10 +1,10 @@
 use crate::errors::*;
-use crate::utilities::*;
 use crate::utilities::symbol_table::SymbolTable;
+use crate::utilities::*;
 use anyhow::Context;
 use anyhow::Result;
 use std::fs::File;
-use std::io::{BufReader, Seek, Read, Write, ErrorKind};
+use std::io::{BufReader, ErrorKind, Read, Seek, Write};
 
 // Initiates the disassembly of the given binary machine code file into an ASM text file
 pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()> {
@@ -41,11 +41,14 @@ pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()
     };
 
     // Scan all labels into the symbol table
-    // let symbol_table = read_labels(&bin_file)?;
+    let symbol_table = read_labels(&bin_file)?;
 
     // Disassemble all the instructions and catch any errors
     // Write the disassembled instructions to the output file
-    // write_output(&mut asm_file, &disassemble_instructions(&bin_file, &symbol_table))?;
+    write_output(
+        &mut asm_file,
+        &disassemble_instructions(&bin_file, &symbol_table)?,
+    )?;
 
     Ok(())
 }
@@ -55,8 +58,10 @@ fn write_output(asm_file: &mut File, disassembled_instructions: &Vec<String>) ->
     for instruction in disassembled_instructions {
         match asm_file.write_all(instruction.as_bytes()) {
             Ok(_) => (),
-            Err(_) => return Err(FileHandlerError::ErrorFileWriteFailed)
-                .context("[INTERNAL ERROR] Couldn't write instructions to the assembly file.")
+            Err(_) => {
+                return Err(FileHandlerError::ErrorFileWriteFailed)
+                    .context("[INTERNAL ERROR] Couldn't write instructions to the assembly file.")
+            }
         }
     }
 
@@ -72,13 +77,16 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
 
     match scanner.rewind() {
         Ok(_) => (),
-        Err(_) => return Err(FileHandlerError::ErrorFileRewindFailed)
-            .context("[INTERNAL ERROR] Couldn't rewind the machine code file for symbol table pass.")
+        Err(_) => {
+            return Err(FileHandlerError::ErrorFileRewindFailed).context(
+                "[INTERNAL ERROR] Couldn't rewind the machine code file for symbol table pass.",
+            )
+        }
     }
 
     // Store the current label number
     let mut current_label: u16 = 0;
-    
+
     // Read each instruction from the file
     loop {
         // Stores the current instruction
@@ -89,8 +97,9 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
             Ok(_) => (),
             Err(err) => match err.kind() {
                 ErrorKind::UnexpectedEof => break,
-                _ => return Err(FileHandlerError::ErrorFileReadFailed)
-                    .context("[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.")
+                _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                    "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
+                ),
             },
         }
 
@@ -103,13 +112,50 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
 
             if !symbol_table.contains(label_address) {
                 symbol_table.add_label(generate_label_name(current_label).as_str(), label_address);
-                
+
                 current_label += 1;
             }
         }
     }
 
     Ok(symbol_table)
+}
+
+// Reads the machine code file and returns a Vec of the disassembled instructions
+fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Result<Vec<String>> {
+    let mut scanner = BufReader::new(bin_file);
+    match scanner.rewind() {
+        Ok(_) => (),
+        Err(_) => {
+            return Err(FileHandlerError::ErrorFileRewindFailed).context(
+                "[INTERNAL ERROR] Couldn't rewind the machine code file for disassembler pass.",
+            )
+        }
+    }
+
+    let mut disassembled_instructions = Vec::<String>::new();
+
+    // Read each instruction from the file
+    loop {
+        // Stores the current instruction
+        let mut buffer = [0; 4];
+
+        // Read 4-byte chunks of the file (instructions)
+        match scanner.read_exact(&mut buffer) {
+            Ok(_) => (),
+            Err(err) => match err.kind() {
+                ErrorKind::UnexpectedEof => break,
+                _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                    "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
+                ),
+            },
+        }
+
+        // Take the bytes and put them in a single u32, converting from network byte order if needed
+        let instruction = u32::from_be_bytes(buffer);
+    }
+
+    Ok(())
 }
 
 // Gets a generic label name based on the given label number
@@ -126,7 +172,7 @@ fn extract_opcode(instruction: u32) -> u8 {
 fn extract_register(instruction: u32, index: usize) -> Result<u8> {
     if index > 2 {
         return Err(RegisterParseError::ErrorInvalidIndex)
-            .context("[INTERNAL ERROR] Invalid register index access.")
+            .context("[INTERNAL ERROR] Invalid register index access.");
     }
 
     // Grab the register from the instruction by masking out a 4-bit section (shifted by the index)

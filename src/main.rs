@@ -42,7 +42,16 @@ fn main() {
                 }
             };
         }
-        // "--disassemble" | "-d" => disassembler::disassemble(input_file, output_file),
+        "--disassemble" | "-d" => {
+            match disassembler::start_disassembler(input_file, output_file) {
+                Ok(_) => println!("File disassembled successfully!"),
+                Err(err) => {
+                    for error in err.chain().rev().skip(1) {
+                        println!("{}", error);
+                    }
+                }
+            };
+        }
         _ => panic!(
             "Invalid target \"{}\"!\n{}",
             target,
