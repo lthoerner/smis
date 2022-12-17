@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader, Seek, Write};
 
 // Initiates the assembly of the given ASM text file into a binary machine code file
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
+    // Ensure the input and output files have the correct extensions
     if !asm_file_name.ends_with(".txt") {
         return Err(FileHandlerError::ErrorInvalidExtension)
             .context("Input file must have a .txt extension.")
@@ -41,6 +42,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
     let symbol_table = read_labels(&asm_file)?;
 
     // Assemble all the instructions and catch any errors
+    // Write the assembled instructions to the output file
     write_output(
         &mut bin_file,
         &assemble_instructions(&asm_file, &symbol_table)?,
