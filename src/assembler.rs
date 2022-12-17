@@ -77,7 +77,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     let mut scanner = BufReader::new(asm_file);
 
     match scanner.rewind() {
-        Ok(()) => (),
+        Ok(_) => (),
         Err(_) => {
             return Err(FileHandlerError::ErrorFileRewindFailed)
                 .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")
@@ -126,7 +126,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
 fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<Vec<u32>> {
     let mut scanner = BufReader::new(asm_file);
     match scanner.rewind() {
-        Ok(()) => (),
+        Ok(_) => (),
         Err(_) => {
             return Err(FileHandlerError::ErrorFileRewindFailed)
                 .context("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass.")
