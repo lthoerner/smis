@@ -51,7 +51,8 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
 fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<()> {
     for &instruction in assembled_instructions {
         // Instruction is converted to big-endian (network byte order) before being written to the file
-        bin_file.write_all(&instruction.to_be_bytes())
+        bin_file
+            .write_all(&instruction.to_be_bytes())
             .map_err(|_| FileHandlerError::ErrorFileWriteFailed)
             .context("[INTERNAL ERROR] Couldn't write instructions to the binary file.")?;
     }
@@ -66,7 +67,8 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
 
     let mut scanner = BufReader::new(asm_file);
 
-    scanner.rewind()
+    scanner
+        .rewind()
         .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")?;
 
@@ -78,7 +80,9 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
         // Handle any errors for line reading
         let line = line
             .map_err(|_| FileHandlerError::ErrorFileReadFailed)
-            .context("[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.")?
+            .context(
+                "[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.",
+            )?
             .as_str();
 
         // Add any labels to the symbol table
@@ -110,7 +114,8 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
 // Reads the ASM file and returns a Vec of the assembled instructions
 fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<Vec<u32>> {
     let mut scanner = BufReader::new(asm_file);
-    scanner.rewind()
+    scanner
+        .rewind()
         .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass.")?;
 
@@ -126,7 +131,9 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         // Handle any errors for line reading
         let line = line
             .map_err(|_| FileHandlerError::ErrorFileReadFailed)
-            .context("[INTERNAL ERROR] Couldn't read a line from the ASM file for the assembler pass.")?
+            .context(
+                "[INTERNAL ERROR] Couldn't read a line from the ASM file for the assembler pass.",
+            )?
             .trim();
 
         // Skip non-instruction lines
@@ -134,8 +141,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
             continue;
         }
 
-        let opcode = parse_opcode(line)
-            .context(format!("On line: {}", line_count))?;
+        let opcode = parse_opcode(line).context(format!("On line: {}", line_count))?;
 
         // Gets an Instruction with the necessary format and the given opcode
         let instruction =
@@ -148,15 +154,18 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
 
         // Assemble the instruction and add it to the Vec
         assembled_instructions.push(match instruction {
-            InstructionContainer::RFormat(container) =>
-                container.assemble(line)
-                    .context(format!("On line: {}", line_count))?.encode(),
-            InstructionContainer::IFormat(container) =>
-                container.assemble(line)
-                    .context(format!("On line: {}", line_count))?.encode(),
-            InstructionContainer::JFormat(container) =>
-                container.assemble(line, symbol_table)
-                    .context(format!("On line: {}", line_count))?.encode(),
+            InstructionContainer::RFormat(container) => container
+                .assemble(line)
+                .context(format!("On line: {}", line_count))?
+                .encode(),
+            InstructionContainer::IFormat(container) => container
+                .assemble(line)
+                .context(format!("On line: {}", line_count))?
+                .encode(),
+            InstructionContainer::JFormat(container) => container
+                .assemble(line, symbol_table)
+                .context(format!("On line: {}", line_count))?
+                .encode(),
         });
     }
 
@@ -289,8 +298,9 @@ fn parse_opcode(instruction: &str) -> Result<u8> {
 // given operand with get_word() and parsing it using parse_register()
 fn get_register(instruction: &str, index: usize) -> Result<u8> {
     match instruction.get_word(index) {
-        Some(unparsed_register) => parse_register(unparsed_register)
-            .context(format!("At: '{}'", unparsed_register)),
+        Some(unparsed_register) => {
+            parse_register(unparsed_register).context(format!("At: '{}'", unparsed_register))
+        }
         None => Err(RegisterParseError::ErrorInvalidIndex)
             .context("[INTERNAL ERROR] Invalid register index access."),
     }
@@ -317,7 +327,8 @@ fn parse_register(register: &str) -> Result<u8> {
 
     // TODO: Different error message for out of u8 bounds
     // Make sure the value after the prefix is numerical and within u8 bounds
-    let register_num = trimmed_register.parse::<u8>()
+    let register_num = trimmed_register
+        .parse::<u8>()
         .map_err(|_| RegisterParseError::ErrorNonNumeric)
         .context("Non-numeric register number.")?;
 
@@ -336,8 +347,9 @@ fn get_immediate(instruction: &str) -> Result<u16> {
     // TODO: There could be more words between other operands and the immediate operand
     // Gets the last word of the line and attempts to parse it into an immediate value
     match instruction.get_word(instruction.count_words() - 1) {
-        Some(unparsed_immediate) => parse_immediate(unparsed_immediate)
-            .context(format!("At: '{}'", unparsed_immediate)),
+        Some(unparsed_immediate) => {
+            parse_immediate(unparsed_immediate).context(format!("At: '{}'", unparsed_immediate))
+        }
         None => Err(ImmediateParseError::ErrorInvalidIndex)
             .context("[INTERNAL ERROR] Invalid immediate index access."),
     }
@@ -355,7 +367,8 @@ fn parse_immediate(immediate: &str) -> Result<u16> {
     };
 
     // Make sure the value after the prefix is numerical and within u16 bounds, then return it
-    trimmed_immediate.parse::<u16>()
+    trimmed_immediate
+        .parse::<u16>()
         .map_err(|_| ImmediateParseError::ErrorNonNumeric)
         .context("Non-numeric immediate value.")
 }
