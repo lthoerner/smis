@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, Write};
 
-// Initiates the assembly off the given ASM file into a binary machine code file
+// Initiates the assembly of the given ASM text file into a binary machine code file
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
     if !asm_file_name.ends_with(".txt") {
         return Err(FileHandlerError::ErrorInvalidExtension)
