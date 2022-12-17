@@ -54,6 +54,7 @@ pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
 // Writes the assembled instructions to the output machine code file
 fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Result<()> {
     for &instruction in assembled_instructions {
+        // Instruction is converted to big-endian (network byte order) before being written to the file
         match bin_file.write_all(&instruction.to_be_bytes()) {
             Ok(_) => (),
             Err(_) => {
@@ -67,23 +68,23 @@ fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Resul
 }
 
 // Scans the input ASM file for labels, and adds them to the symbol table for use later
-fn read_labels(asm_file: &File) -> Result<SymbolTable> {
-    // Store the address of the instruction currently being scanned
-    let mut current_address: u16 = 0x00;
-
+fn read_labels(asm_file: &File) -> Result<SymbolTable> {    
     // Stores all labels found in the file along with their corresponding instruction addressses
     let mut symbol_table = symbol_table::new();
-
+    
     let mut scanner = BufReader::new(asm_file);
-
+    
     match scanner.rewind() {
         Ok(_) => (),
         Err(_) => {
             return Err(FileHandlerError::ErrorFileRewindFailed)
-                .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")
+            .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")
         }
     };
 
+    // Store the address of the instruction currently being scanned
+    let mut current_address: u16 = 0x00;
+    
     // For each line in the file
     for line in scanner.lines() {
         // Handle any errors for line reading
