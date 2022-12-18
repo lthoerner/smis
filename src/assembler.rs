@@ -77,11 +77,9 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     // For each line in the file
     for line in scanner.lines() {
         // Handle any errors for line reading
-        let line = line
-            .map_err(|_| FileHandlerError::FileReadFailed)
-            .context(
-                "[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.",
-            )?;
+        let line = line.map_err(|_| FileHandlerError::FileReadFailed).context(
+            "[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.",
+        )?;
 
         let line = line.trim();
 
@@ -129,11 +127,9 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         line_count += 1;
 
         // Handle any errors for line reading
-        let line = line
-            .map_err(|_| FileHandlerError::FileReadFailed)
-            .context(
-                "[INTERNAL ERROR] Couldn't read a line from the ASM file for the assembler pass.",
-            )?;
+        let line = line.map_err(|_| FileHandlerError::FileReadFailed).context(
+            "[INTERNAL ERROR] Couldn't read a line from the ASM file for the assembler pass.",
+        )?;
 
         let line = line.trim();
 

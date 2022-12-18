@@ -43,9 +43,7 @@ pub fn parse_register(register: &str) -> Result<u8> {
     // Make sure the register begins with 'R'
     let trimmed_register = match register.strip_prefix('R') {
         Some(trim) => trim,
-        None => {
-            return Err(RegisterParseError::InvalidPrefix).context("Invalid register prefix.")
-        }
+        None => return Err(RegisterParseError::InvalidPrefix).context("Invalid register prefix."),
     };
 
     // TODO: Different error message for out of u8 bounds
@@ -84,8 +82,7 @@ pub fn parse_immediate(immediate: &str) -> Result<u16> {
     let trimmed_immediate = match immediate.strip_prefix('#') {
         Some(trim) => trim,
         None => {
-            return Err(ImmediateParseError::InvalidPrefix)
-                .context("Invalid immediate prefix.")
+            return Err(ImmediateParseError::InvalidPrefix).context("Invalid immediate prefix.")
         }
     };
 

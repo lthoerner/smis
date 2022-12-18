@@ -165,7 +165,10 @@ pub fn get_instruction_container(opcode: u8) -> Option<InstructionContainer> {
 }
 
 pub fn is_jump(opcode: u8) -> bool {
-    matches!(get_instruction_container(opcode), Some(InstructionContainer::JFormat(_)))
+    matches!(
+        get_instruction_container(opcode),
+        Some(InstructionContainer::JFormat(_))
+    )
 }
 
 pub fn has_dest(opcode: u8) -> bool {
