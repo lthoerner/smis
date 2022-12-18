@@ -12,25 +12,25 @@ use std::io::{BufRead, BufReader, Seek, Write};
 pub fn start_assembler(asm_file_name: &str, bin_file_name: &str) -> Result<()> {
     // Ensure the input and output files have the correct extensions
     if !asm_file_name.ends_with(".txt") {
-        return Err(FileHandlerError::ErrorInvalidExtension)
+        return Err(FileHandlerError::InvalidExtension)
             .context("Input file must have a .txt extension.")
             .context(user_messages::USAGE_ERROR);
     }
 
     if !bin_file_name.ends_with(".bin") {
-        return Err(FileHandlerError::ErrorInvalidExtension)
+        return Err(FileHandlerError::InvalidExtension)
             .context("Output file must have a .bin extension.")
             .context(user_messages::USAGE_ERROR);
     }
 
     // Open/create the input and output file
     let asm_file = File::options().read(true).open(asm_file_name)
-        .map_err(|_| FileHandlerError::ErrorFileOpenFailed)
+        .map_err(|_| FileHandlerError::FileOpenFailed)
         .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
         .context(user_messages::USAGE_ERROR)?;
 
     let mut bin_file = File::options().write(true).create(true).open(bin_file_name)
-        .map_err(|_| FileHandlerError::ErrorFileCreateFailed)
+        .map_err(|_| FileHandlerError::FileCreateFailed)
         .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
         .context(user_messages::USAGE_ERROR)?;
 
@@ -53,7 +53,7 @@ fn write_output(bin_file: &mut File, assembled_instructions: &Vec<u32>) -> Resul
         // Instruction is converted to big-endian (network byte order) before being written to the file
         bin_file
             .write_all(&instruction.to_be_bytes())
-            .map_err(|_| FileHandlerError::ErrorFileWriteFailed)
+            .map_err(|_| FileHandlerError::FileWriteFailed)
             .context("[INTERNAL ERROR] Couldn't write instructions to the binary file.")?;
     }
 
@@ -68,7 +68,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     let mut scanner = BufReader::new(asm_file);
     scanner
         .rewind()
-        .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
+        .map_err(|_| FileHandlerError::FileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the ASM file for symbol table pass.")?;
 
     // Store the address of the instruction currently being scanned
@@ -78,7 +78,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     for line in scanner.lines() {
         // Handle any errors for line reading
         let line = line
-            .map_err(|_| FileHandlerError::ErrorFileReadFailed)
+            .map_err(|_| FileHandlerError::FileReadFailed)
             .context(
                 "[INTERNAL ERROR] Couldn't read a line from the ASM file for symbol table pass.",
             )?;
@@ -93,7 +93,7 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
                     Some(name) => name,
                     // This should never happen, as the above condition requires the line to end in ':'
                     None => {
-                        return Err(SymbolTableError::ErrorCouldNotAddLabel)
+                        return Err(SymbolTableError::CouldNotAddLabel)
                             .context("[INTERNAL ERROR] Label was missing suffix.")
                     }
                 },
@@ -116,7 +116,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
     let mut scanner = BufReader::new(asm_file);
     scanner
         .rewind()
-        .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
+        .map_err(|_| FileHandlerError::FileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the ASM file for assembler pass.")?;
 
     let mut assembled_instructions = Vec::<u32>::new();
@@ -130,7 +130,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
 
         // Handle any errors for line reading
         let line = line
-            .map_err(|_| FileHandlerError::ErrorFileReadFailed)
+            .map_err(|_| FileHandlerError::FileReadFailed)
             .context(
                 "[INTERNAL ERROR] Couldn't read a line from the ASM file for the assembler pass.",
             )?;
@@ -149,7 +149,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         let mut instruction =
             match opcode_resolver::get_instruction_container(opcode) {
                 Some(instr) => instr,
-                None => return Err(OpcodeParseError::ErrorUnknownOpcode).context(
+                None => return Err(OpcodeParseError::UnknownOpcode).context(
                     "[INTERNAL ERROR] Used an invalid opcode to create an instruction container.",
                 ),
             };

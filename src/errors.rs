@@ -1,50 +1,50 @@
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error while handling a file.")]
 pub enum FileHandlerError {
-    ErrorInvalidExtension,
-    ErrorFileOpenFailed,
-    ErrorFileCreateFailed,
-    ErrorFileReadFailed,
-    ErrorFileWriteFailed,
-    ErrorFileRewindFailed,
+    InvalidExtension,
+    FileOpenFailed,
+    FileCreateFailed,
+    FileReadFailed,
+    FileWriteFailed,
+    FileRewindFailed,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error when parsing a mnemonic.")]
 pub enum MnemonicParseError {
-    ErrorInvalidIndex,
-    ErrorUnknownMnemonic,
+    InvalidIndex,
+    UnknownMnemonic,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error when parsing an opcode.")]
 pub enum OpcodeParseError {
-    ErrorUnknownOpcode,
+    UnknownOpcode,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error when parsing a register.")]
 pub enum RegisterParseError {
-    ErrorInvalidIndex,
-    ErrorInvalidPrefix,
-    ErrorNonNumeric,
-    ErrorInvalidNumber,
+    InvalidIndex,
+    InvalidPrefix,
+    NonNumeric,
+    InvalidNumber,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error when parsing an immediate.")]
 pub enum ImmediateParseError {
-    ErrorInvalidIndex,
-    ErrorInvalidPrefix,
-    ErrorNonNumeric,
-    // ErrorInvalidNumber,
+    InvalidIndex,
+    InvalidPrefix,
+    NonNumeric,
+    // InvalidNumber,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Encountered an error when operating on the symbol table.")]
 pub enum SymbolTableError {
-    ErrorCouldNotAddLabel,
-    ErrorLabelNotFound,
+    CouldNotAddLabel,
+    LabelNotFound,
     // TODO: Add behavior for this
-    // ErrorLabelAlreadyExists,
+    // LabelAlreadyExists,
 }

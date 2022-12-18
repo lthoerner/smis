@@ -13,14 +13,14 @@ use std::io::{BufReader, ErrorKind, Read, Seek, Write};
 pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()> {
     // Ensure the input and output files have the correct extensions
     if !bin_file_name.ends_with(".bin") {
-        return Err(FileHandlerError::ErrorInvalidExtension)
+        return Err(FileHandlerError::InvalidExtension)
             .context("Input file must have a .bin extension.")
             .context(user_messages::USAGE_ERROR);
     }
 
     // Open/create the input and output file
     if !asm_file_name.ends_with(".txt") {
-        return Err(FileHandlerError::ErrorInvalidExtension)
+        return Err(FileHandlerError::InvalidExtension)
             .context("Output file must have a .txt extension.")
             .context(user_messages::USAGE_ERROR);
     }
@@ -28,7 +28,7 @@ pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()
     let bin_file = match File::options().read(true).open(bin_file_name) {
         Ok(file) => file,
         Err(_) => {
-            return Err(FileHandlerError::ErrorFileOpenFailed)
+            return Err(FileHandlerError::FileOpenFailed)
                 .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
                 .context(user_messages::USAGE_ERROR);
         }
@@ -37,7 +37,7 @@ pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()
     let mut asm_file = match File::options().write(true).create(true).open(asm_file_name) {
         Ok(file) => file,
         Err(_) => {
-            return Err(FileHandlerError::ErrorFileOpenFailed)
+            return Err(FileHandlerError::FileOpenFailed)
                 .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
                 .context(user_messages::USAGE_ERROR);
         }
@@ -62,7 +62,7 @@ fn write_output(asm_file: &mut File, disassembled_instructions: &Vec<String>) ->
         match asm_file.write_all(instruction.as_bytes()) {
             Ok(_) => (),
             Err(_) => {
-                return Err(FileHandlerError::ErrorFileWriteFailed)
+                return Err(FileHandlerError::FileWriteFailed)
                     .context("[INTERNAL ERROR] Couldn't write instructions to the assembly file.")
             }
         }
@@ -80,7 +80,7 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
     match scanner.rewind() {
         Ok(_) => (),
         Err(_) => {
-            return Err(FileHandlerError::ErrorFileRewindFailed).context(
+            return Err(FileHandlerError::FileRewindFailed).context(
                 "[INTERNAL ERROR] Couldn't rewind the machine code file for symbol table pass.",
             )
         }
@@ -99,7 +99,7 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
             Ok(_) => (),
             Err(err) => match err.kind() {
                 ErrorKind::UnexpectedEof => break,
-                _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                _ => return Err(FileHandlerError::FileReadFailed).context(
                     "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
                 ),
             },
@@ -128,7 +128,7 @@ fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Resu
     let mut scanner = BufReader::new(bin_file);
     scanner
         .rewind()
-        .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
+        .map_err(|_| FileHandlerError::FileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the machine code file for disassembler pass.")?;
 
     let mut disassembled_instructions = Vec::<String>::new();
@@ -143,7 +143,7 @@ fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Resu
             Ok(_) => (),
             Err(err) => match err.kind() {
                 ErrorKind::UnexpectedEof => break,
-                _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                _ => return Err(FileHandlerError::FileReadFailed).context(
                     "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
                 ),
             },
@@ -157,7 +157,7 @@ fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Resu
             match opcode_resolver::get_instruction_container(extract_opcode(encoded_instruction)) {
                 Some(container) => container,
                 None => {
-                    return Err(OpcodeParseError::ErrorUnknownOpcode)
+                    return Err(OpcodeParseError::UnknownOpcode)
                         .context("Invalid instruction found in the machine code file.")
                 }
             };

@@ -91,7 +91,7 @@ impl Instruction for RFormat {
         instruction_string.push_str(match get_mnemonic(self.opcode) {
             Some(mnem) => mnem,
             None => {
-                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                return Err(OpcodeParseError::UnknownOpcode)
                     .context("Invalid instruction found in the machine code file.")
             }
         });
@@ -166,7 +166,7 @@ impl Instruction for IFormat {
         instruction_string.push_str(match get_mnemonic(self.opcode) {
             Some(mnem) => mnem,
             None => {
-                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                return Err(OpcodeParseError::UnknownOpcode)
                     .context("Invalid instruction found in the machine code file.")
             }
         });
@@ -222,7 +222,7 @@ impl Instruction for JFormat {
             self.dest_addr = match symbol_table.find_address(label.trim()) {
                 Some(addr) => addr,
                 None => {
-                    return Err(SymbolTableError::ErrorLabelNotFound)
+                    return Err(SymbolTableError::LabelNotFound)
                         .context("Label not found in symbol table.")
                         .context(format!("At: '{}'", label))
                 }
@@ -239,7 +239,7 @@ impl Instruction for JFormat {
         instruction_string.push_str(match get_mnemonic(self.opcode) {
             Some(mnem) => mnem,
             None => {
-                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                return Err(OpcodeParseError::UnknownOpcode)
                     .context("Invalid instruction found in the machine code file.")
             }
         });
@@ -251,7 +251,7 @@ impl Instruction for JFormat {
             let label = match symbol_table.find_name(self.dest_addr) {
                 Some(label) => label,
                 None => {
-                    return Err(SymbolTableError::ErrorLabelNotFound)
+                    return Err(SymbolTableError::LabelNotFound)
                         .context("[INTERNAL ERROR] Label not found in symbol table.")
                 }
             };

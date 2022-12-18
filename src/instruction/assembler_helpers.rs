@@ -8,11 +8,11 @@ pub fn get_opcode_from_instruction_text(instruction: &str) -> Result<u8> {
     match instruction.get_word(0) {
         Some(mnemonic) => match opcode_resolver::get_opcode(mnemonic) {
             Some(opcode) => Ok(opcode),
-            None => Err(MnemonicParseError::ErrorUnknownMnemonic)
+            None => Err(MnemonicParseError::UnknownMnemonic)
                 .context("Unknown or malformed mnemonic.")
                 .context(format!("At: '{}'", mnemonic)),
         },
-        None => Err(MnemonicParseError::ErrorInvalidIndex)
+        None => Err(MnemonicParseError::InvalidIndex)
             .context("[INTERNAL ERROR] Invalid mnemonic index access."),
     }
 }
@@ -24,7 +24,7 @@ pub fn get_register(instruction: &str, index: usize) -> Result<u8> {
         Some(unparsed_register) => {
             parse_register(unparsed_register).context(format!("At: '{}'", unparsed_register))
         }
-        None => Err(RegisterParseError::ErrorInvalidIndex)
+        None => Err(RegisterParseError::InvalidIndex)
             .context("[INTERNAL ERROR] Invalid register index access."),
     }
 }
@@ -44,7 +44,7 @@ pub fn parse_register(register: &str) -> Result<u8> {
     let trimmed_register = match register.strip_prefix('R') {
         Some(trim) => trim,
         None => {
-            return Err(RegisterParseError::ErrorInvalidPrefix).context("Invalid register prefix.")
+            return Err(RegisterParseError::InvalidPrefix).context("Invalid register prefix.")
         }
     };
 
@@ -52,12 +52,12 @@ pub fn parse_register(register: &str) -> Result<u8> {
     // Make sure the value after the prefix is numerical and within u8 bounds
     let register_num = trimmed_register
         .parse::<u8>()
-        .map_err(|_| RegisterParseError::ErrorNonNumeric)
+        .map_err(|_| RegisterParseError::NonNumeric)
         .context("Non-numeric register number.")?;
 
     // Make sure the register exists (0-15)
     match register_num > 15 {
-        true => Err(RegisterParseError::ErrorInvalidNumber)
+        true => Err(RegisterParseError::InvalidNumber)
             .context("Register number out of bounds (0-15).")
             .context(format!("At: '{}'", register)),
         false => Ok(register_num),
@@ -73,7 +73,7 @@ pub fn get_immediate(instruction: &str) -> Result<u16> {
         Some(unparsed_immediate) => {
             parse_immediate(unparsed_immediate).context(format!("At: '{}'", unparsed_immediate))
         }
-        None => Err(ImmediateParseError::ErrorInvalidIndex)
+        None => Err(ImmediateParseError::InvalidIndex)
             .context("[INTERNAL ERROR] Invalid immediate index access."),
     }
 }
@@ -84,7 +84,7 @@ pub fn parse_immediate(immediate: &str) -> Result<u16> {
     let trimmed_immediate = match immediate.strip_prefix('#') {
         Some(trim) => trim,
         None => {
-            return Err(ImmediateParseError::ErrorInvalidPrefix)
+            return Err(ImmediateParseError::InvalidPrefix)
                 .context("Invalid immediate prefix.")
         }
     };
@@ -92,7 +92,7 @@ pub fn parse_immediate(immediate: &str) -> Result<u16> {
     // Make sure the value after the prefix is numerical and within u16 bounds, then return it
     trimmed_immediate
         .parse::<u16>()
-        .map_err(|_| ImmediateParseError::ErrorNonNumeric)
+        .map_err(|_| ImmediateParseError::NonNumeric)
         .context("Non-numeric immediate value.")
 }
 

@@ -9,7 +9,7 @@ pub fn generate_label_name(label_number: u16) -> String {
 // Formats a register number into a string
 pub fn format_register(register: u8) -> Result<String> {
     if register > 15 {
-        return Err(RegisterParseError::ErrorInvalidIndex)
+        return Err(RegisterParseError::InvalidIndex)
             .context("Register number out of bounds (0-15).");
     }
 
