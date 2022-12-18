@@ -170,3 +170,31 @@ pub fn is_jump(opcode: u8) -> bool {
         _ => false,
     }
 }
+
+pub fn has_dest(opcode: u8) -> bool {
+    match opcode {
+        OP_COMPARE | OP_COMPARE_IMM => false,
+        _ => true,
+    }
+}
+
+pub fn has_reg_op1(opcode: u8) -> bool {
+    match opcode {
+        OP_SET => false,
+        _ => true,
+    }
+}
+
+pub fn has_reg_op2(opcode: u8) -> bool {
+    match opcode {
+        OP_COPY | OP_NOT => false,
+        _ => true,
+    }
+}
+
+pub fn has_label(opcode: u8) -> bool {
+    match opcode {
+        OP_HALT => false,
+        _ => true,
+    }
+}

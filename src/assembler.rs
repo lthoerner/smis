@@ -66,7 +66,6 @@ fn read_labels(asm_file: &File) -> Result<SymbolTable> {
     let mut symbol_table = symbol_table::new();
 
     let mut scanner = BufReader::new(asm_file);
-
     scanner
         .rewind()
         .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
@@ -146,7 +145,7 @@ fn assemble_instructions(asm_file: &File, symbol_table: &SymbolTable) -> Result<
         let opcode =
             get_opcode_from_instruction_text(line).context(format!("On line: {}", line_count))?;
 
-        // Gets an InstructionFormat with the necessary format and the given opcode
+        // Gets an InstructionContainer with the necessary format and the given opcode
         let mut instruction =
             match opcode_resolver::get_instruction_container(opcode) {
                 Some(instr) => instr,

@@ -1,6 +1,7 @@
 use crate::errors::*;
 use crate::instruction::disassembler_helpers::*;
-use crate::instruction::*;
+use crate::instruction::instruction::*;
+use crate::instruction::opcode_resolver;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::*;
 use anyhow::Context;
@@ -47,10 +48,10 @@ pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()
 
     // Disassemble all the instructions and catch any errors
     // Write the disassembled instructions to the output file
-    // write_output(
-    //     &mut asm_file,
-    //     &disassemble_instructions(&bin_file, &symbol_table)?,
-    // )?;
+    write_output(
+        &mut asm_file,
+        &disassemble_instructions(&bin_file, &symbol_table)?,
+    )?;
 
     Ok(())
 }
@@ -76,7 +77,6 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
     let mut symbol_table = symbol_table::new();
 
     let mut scanner = BufReader::new(bin_file);
-
     match scanner.rewind() {
         Ok(_) => (),
         Err(_) => {
@@ -123,36 +123,51 @@ fn read_labels(bin_file: &File) -> Result<SymbolTable> {
     Ok(symbol_table)
 }
 
-// // Reads the machine code file and returns a Vec of the disassembled instructions
-// fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Result<Vec<String>> {
-//     let mut scanner = BufReader::new(bin_file);
+// Reads the machine code file and returns a Vec of the disassembled instructions
+fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Result<Vec<String>> {
+    let mut scanner = BufReader::new(bin_file);
+    scanner
+        .rewind()
+        .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
+        .context("[INTERNAL ERROR] Couldn't rewind the machine code file for disassembler pass.")?;
 
-//     scanner
-//         .rewind()
-//         .map_err(|_| FileHandlerError::ErrorFileRewindFailed)
-//         .context("[INTERNAL ERROR] Couldn't rewind the machine code file for disassembler pass.")?;
+    let mut disassembled_instructions = Vec::<String>::new();
 
-//     let mut disassembled_instructions = Vec::<String>::new();
+    // Read each instruction from the file
+    loop {
+        // Stores the current instruction
+        let mut buffer = [0; 4];
 
-//     // Read each instruction from the file
-//     loop {
-//         // Stores the current instruction
-//         let mut buffer = [0; 4];
+        // Read 4-byte chunks of the file (instructions)
+        match scanner.read_exact(&mut buffer) {
+            Ok(_) => (),
+            Err(err) => match err.kind() {
+                ErrorKind::UnexpectedEof => break,
+                _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
+                    "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
+                ),
+            },
+        }
 
-//         // Read 4-byte chunks of the file (instructions)
-//         match scanner.read_exact(&mut buffer) {
-//             Ok(_) => (),
-//             Err(err) => match err.kind() {
-//                 ErrorKind::UnexpectedEof => break,
-//                 _ => return Err(FileHandlerError::ErrorFileReadFailed).context(
-//                     "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
-//                 ),
-//             },
-//         }
+        // Take the bytes and put them in a single u32, converting from network byte order if needed
+        let encoded_instruction = u32::from_be_bytes(buffer);
 
-//         // Take the bytes and put them in a single u32, converting from network byte order if needed
-//         let instruction = u32::from_be_bytes(buffer);
-//     }
+        // Gets an InstructionContainer with the necessary format and the given opcode
+        let mut instruction =
+            match opcode_resolver::get_instruction_container(extract_opcode(encoded_instruction)) {
+                Some(container) => container,
+                None => {
+                    return Err(OpcodeParseError::ErrorUnknownOpcode)
+                        .context("Invalid instruction found in the machine code file.")
+                }
+            };
 
-//     Ok(())
-// }
+        // Populate the fields of the container with the data from the instruction
+        instruction.decode(encoded_instruction);
+
+        // Disassemble the instruction into a String and add it to the Vec
+        disassembled_instructions.push(instruction.disassemble(symbol_table)?);
+    }
+
+    Ok(disassembled_instructions)
+}

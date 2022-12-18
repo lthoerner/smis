@@ -11,23 +11,25 @@ use enum_dispatch::enum_dispatch;
 pub trait Instruction {
     // Assembles an instruction from a string into a format struct
     fn assemble(&mut self, instruction_text: &str, symbol_table: &SymbolTable) -> Result<()>;
-    // Disassembles an instruction from a u32 into a format struct
-    fn disassemble(&self) -> Result<String>;
+    // Disassembles an instruction from a format struct into a string
+    fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String>;
     // Encodes an instruction from a format struct into a u32
     fn encode(&self) -> u32;
-    // Decodes an instruction from a format struct into a string
+    // Decodes an instruction from a u32 into a format struct
     fn decode(&mut self, encoded_instruction: u32);
 }
 
 // Allows for generic referencing of instruction format structs
 #[enum_dispatch(Instruction)]
+#[derive(Debug)]
 pub enum InstructionContainer {
     RFormat,
     IFormat,
     JFormat,
 }
 
-#[derive(Default)]
+// Instruction format structs
+#[derive(Default, Debug)]
 pub struct RFormat {
     pub opcode: u8,
     pub r_dest: u8,
@@ -35,7 +37,7 @@ pub struct RFormat {
     pub r_op2: u8,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct IFormat {
     pub opcode: u8,
     pub r_dest: u8,
@@ -43,7 +45,7 @@ pub struct IFormat {
     pub i_op2: u16,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct JFormat {
     pub opcode: u8,
     pub dest_addr: u16,
@@ -53,42 +55,59 @@ pub struct JFormat {
 impl Instruction for RFormat {
     fn assemble(&mut self, instruction_text: &str, _symbol_table: &SymbolTable) -> Result<()> {
         // COMPARE instructions do not have an destination register
-        // This could be renamed to compare_mode, but there could eventually be other instructions that also have
-        // no destination register, so this is a more modular approach
-        let mut no_dest = false;
+        // This could be renamed to compare_mode, but there could eventually be
+        // other instructions that also have no destination register
+        let has_dest = has_dest(self.opcode);
         // Similarly, NOT and COPY instructions do not have a second operand register
-        let mut no_op2 = false;
-
-        match self.opcode {
-            OP_COMPARE => no_dest = true,
-            OP_NOT | OP_COPY => no_op2 = true,
-            // Use default values for instructions with standard format
-            _ => (),
-        }
+        let has_op2 = has_reg_op2(self.opcode);
 
         // In the case of a missing destination register, all the operand words are shifted over to the left
-        let missing_destination_index_adjustment = no_dest as usize;
+        let missing_destination_index_adjustment = !has_dest as usize;
 
         // If there is no destination register, the r_dest field is left blank
-        self.r_dest = match no_dest {
-            true => 0x00,
-            false => get_register(instruction_text, 1)?,
+        self.r_dest = match has_dest {
+            true => get_register(instruction_text, 1)?,
+            false => 0x00,
         };
 
         // All R-Format instructions are guaranteed to have a first operand register
         self.r_op1 = get_register(instruction_text, 2 - missing_destination_index_adjustment)?;
 
         // If there is no second operand register, the r_op2 field is left blank
-        self.r_op2 = match no_op2 {
-            true => 0x00,
-            false => get_register(instruction_text, 3 - missing_destination_index_adjustment)?,
+        self.r_op2 = match has_op2 {
+            true => get_register(instruction_text, 3 - missing_destination_index_adjustment)?,
+            false => 0x00,
         };
 
         Ok(())
     }
 
-    fn disassemble(&self) -> Result<String> {
-        Ok(String::from("blah"))
+    fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
+        let mut instruction_string = String::new();
+
+        instruction_string.push_str(match get_mnemonic(self.opcode) {
+            Some(mnem) => mnem,
+            None => return Err(OpcodeParseError::ErrorUnknownOpcode)
+                .context("Invalid instruction found in the machine code file.")
+        });
+
+        instruction_string.push(' ');
+        
+        if has_dest(self.opcode) {
+            instruction_string.push_str(&format_register(self.r_dest)?);
+            instruction_string.push(' ');
+        }
+
+        instruction_string.push_str(&format_register(self.r_op1)?);
+        instruction_string.push(' ');
+
+        if has_reg_op2(self.opcode) {
+            instruction_string.push_str(&format_register(self.r_op2)?);
+        }
+
+        instruction_string.push('\n');
+
+        Ok(instruction_string)
     }
 
     fn encode(&self) -> u32 {
@@ -102,7 +121,7 @@ impl Instruction for RFormat {
         self.opcode = extract_opcode(encoded_instruction);
         self.r_dest = extract_register(encoded_instruction, 0);
         self.r_op1 = extract_register(encoded_instruction, 1);
-        self.r_op2 = extract_register(encoded_instruction, 1);
+        self.r_op2 = extract_register(encoded_instruction, 2);
     }
 }
 
@@ -110,27 +129,20 @@ impl Instruction for RFormat {
 impl Instruction for IFormat {
     fn assemble(&mut self, instruction_text: &str, _symbol_table: &SymbolTable) -> Result<()> {
         // COMPARE-IMM instructions do not have an destination register
-        let mut no_dest = false;
+        let has_dest = has_dest(self.opcode);
         // Similarly, SET instructions do not have a register operand
-        let mut no_reg_op = false;
-
-        match self.opcode {
-            OP_COMPARE_IMM => no_dest = true,
-            OP_SET => no_reg_op = true,
-            // Use default values for instructions with standard format
-            _ => (),
-        }
+        let has_reg_op = has_reg_op1(self.opcode);
 
         // If there is no destination register, the r_dest field is left blank
-        self.r_dest = match no_dest {
-            true => 0x00,
-            false => get_register(instruction_text, 1)?,
+        self.r_dest = match has_dest {
+            true => get_register(instruction_text, 1)?,
+            false => 0x00,
         };
 
         // If there is no register operand, the r_op1 field is left blank
-        self.r_op1 = match no_reg_op {
-            true => 0x00,
-            false => get_register(instruction_text, 2)?,
+        self.r_op1 = match has_reg_op {
+            true => get_register(instruction_text, 2)?,
+            false => 0x00,
         };
 
         // All I-Format instructions are guaranteed to have an immediate operand
@@ -139,8 +151,8 @@ impl Instruction for IFormat {
         Ok(())
     }
 
-    fn disassemble(&self) -> Result<String> {
-        Ok(String::from("blah"))
+    fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
+        Ok(String::from("blah\n"))
     }
 
     fn encode(&self) -> u32 {
@@ -162,16 +174,10 @@ impl Instruction for IFormat {
 impl Instruction for JFormat {
     fn assemble(&mut self, instruction_text: &str, symbol_table: &SymbolTable) -> Result<()> {
         // HALT instructions do not have a destination label
-        let mut no_label = false;
-
-        match self.opcode {
-            OP_HALT => no_label = true,
-            // Use default value for instructions with standard format
-            _ => (),
-        }
+        let has_label = has_label(self.opcode);
 
         // Skip address resolution for instructions with no destination label
-        if !no_label {
+        if has_label {
             let label = instruction_text.without_first_word();
 
             // Get the label address of a given label name, if it is not a HALT
@@ -188,8 +194,8 @@ impl Instruction for JFormat {
         Ok(())
     }
 
-    fn disassemble(&self) -> Result<String> {
-        Ok(String::from("blah"))
+    fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String> {
+        Ok(String::from("blah\n"))
     }
 
     fn encode(&self) -> u32 {
