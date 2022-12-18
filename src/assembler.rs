@@ -1,6 +1,6 @@
 use crate::errors::*;
 use crate::instruction::assembler_helpers::*;
-use crate::instruction::instruction::Instruction;
+use crate::instruction::instruction_container::Instruction;
 use crate::instruction::*;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::*;

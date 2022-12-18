@@ -104,7 +104,7 @@ pub fn is_label(line: &str) -> bool {
     }
 
     // TODO: Possibly add checking for extra ':' at the end
-    !is_comment(line) && line.chars().last() == Some(':')
+    !is_comment(line) && line.ends_with(':')
 }
 
 // Checks whether a given string starts with a "//", denoting that it is a comment

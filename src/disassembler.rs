@@ -1,6 +1,6 @@
 use crate::errors::*;
 use crate::instruction::disassembler_helpers::*;
-use crate::instruction::instruction::*;
+use crate::instruction::instruction_container::*;
 use crate::instruction::opcode_resolver;
 use crate::utilities::symbol_table::SymbolTable;
 use crate::utilities::*;

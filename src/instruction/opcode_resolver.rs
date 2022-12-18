@@ -1,4 +1,4 @@
-use super::instruction::*;
+use super::instruction_container::*;
 
 // Opcode constants
 pub const OP_SET: u8 = 0x01;
@@ -165,36 +165,21 @@ pub fn get_instruction_container(opcode: u8) -> Option<InstructionContainer> {
 }
 
 pub fn is_jump(opcode: u8) -> bool {
-    match get_instruction_container(opcode) {
-        Some(InstructionContainer::JFormat(_)) => true,
-        _ => false,
-    }
+    matches!(get_instruction_container(opcode), Some(InstructionContainer::JFormat(_)))
 }
 
 pub fn has_dest(opcode: u8) -> bool {
-    match opcode {
-        OP_COMPARE | OP_COMPARE_IMM => false,
-        _ => true,
-    }
+    !matches!(opcode, OP_COMPARE | OP_COMPARE_IMM)
 }
 
 pub fn has_reg_op1(opcode: u8) -> bool {
-    match opcode {
-        OP_SET => false,
-        _ => true,
-    }
+    !matches!(opcode, OP_SET)
 }
 
 pub fn has_reg_op2(opcode: u8) -> bool {
-    match opcode {
-        OP_COPY | OP_NOT => false,
-        _ => true,
-    }
+    !matches!(opcode, OP_COPY | OP_NOT)
 }
 
 pub fn has_label(opcode: u8) -> bool {
-    match opcode {
-        OP_HALT => false,
-        _ => true,
-    }
+    !matches!(opcode, OP_HALT)
 }
