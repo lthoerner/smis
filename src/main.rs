@@ -9,6 +9,7 @@ mod assembler;
 mod disassembler;
 mod emulator;
 mod errors;
+mod instruction;
 mod utilities;
 
 fn main() {

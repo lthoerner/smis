@@ -17,7 +17,7 @@ Some_Label_1:
 
     Some_Nested_Label_1:
 
-LOAD R1 R10 #20
+LOAD R1 R10 #2044
 JUMP Some_Label_1
 
 COMPARE R1 R3
