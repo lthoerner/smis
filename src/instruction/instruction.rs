@@ -65,19 +65,21 @@ impl Instruction for RFormat {
         let missing_destination_index_adjustment = !has_dest as usize;
 
         // If there is no destination register, the r_dest field is left blank
-        self.r_dest = match has_dest {
-            true => get_register(instruction_text, 1)?,
-            false => 0x00,
+        if has_dest {
+            self.r_dest = get_register(instruction_text, 1)?;
+        } else {
+            self.r_dest = 0x00;
         };
 
         // All R-Format instructions are guaranteed to have a first operand register
         self.r_op1 = get_register(instruction_text, 2 - missing_destination_index_adjustment)?;
 
         // If there is no second operand register, the r_op2 field is left blank
-        self.r_op2 = match has_op2 {
-            true => get_register(instruction_text, 3 - missing_destination_index_adjustment)?,
-            false => 0x00,
-        };
+        if has_op2 {
+            self.r_op2 = get_register(instruction_text, 3 - missing_destination_index_adjustment)?;
+        } else {
+            self.r_op2 = 0x00;
+        }
 
         Ok(())
     }
@@ -85,22 +87,28 @@ impl Instruction for RFormat {
     fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
         let mut instruction_string = String::new();
 
+        // Concatenate the mnemonic
         instruction_string.push_str(match get_mnemonic(self.opcode) {
             Some(mnem) => mnem,
-            None => return Err(OpcodeParseError::ErrorUnknownOpcode)
-                .context("Invalid instruction found in the machine code file.")
+            None => {
+                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                    .context("Invalid instruction found in the machine code file.")
+            }
         });
 
         instruction_string.push(' ');
-        
+
+        // Concatenate the destination register
         if has_dest(self.opcode) {
             instruction_string.push_str(&format_register(self.r_dest)?);
             instruction_string.push(' ');
         }
 
+        // Concatenate the first operand register
         instruction_string.push_str(&format_register(self.r_op1)?);
         instruction_string.push(' ');
 
+        // Concatenate the second operand register
         if has_reg_op2(self.opcode) {
             instruction_string.push_str(&format_register(self.r_op2)?);
         }
@@ -152,7 +160,37 @@ impl Instruction for IFormat {
     }
 
     fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
-        Ok(String::from("blah\n"))
+        let mut instruction_string = String::new();
+
+        // Concatenate the mnemonic
+        instruction_string.push_str(match get_mnemonic(self.opcode) {
+            Some(mnem) => mnem,
+            None => {
+                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                    .context("Invalid instruction found in the machine code file.")
+            }
+        });
+
+        instruction_string.push(' ');
+
+        // Concatenate the destination register
+        if has_dest(self.opcode) {
+            instruction_string.push_str(&format_register(self.r_dest)?);
+            instruction_string.push(' ');
+        }
+
+        // Concatenate the register operand
+        if has_reg_op1(self.opcode) {
+            instruction_string.push_str(&format_register(self.r_op1)?);
+            instruction_string.push(' ');
+        }
+
+        // Concatenate the immediate operand
+        instruction_string.push_str(&format_immediate(self.i_op2));
+
+        instruction_string.push('\n');
+
+        Ok(instruction_string)
     }
 
     fn encode(&self) -> u32 {
@@ -195,7 +233,35 @@ impl Instruction for JFormat {
     }
 
     fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String> {
-        Ok(String::from("blah\n"))
+        let mut instruction_string = String::new();
+
+        // Concatenate the mnemonic
+        instruction_string.push_str(match get_mnemonic(self.opcode) {
+            Some(mnem) => mnem,
+            None => {
+                return Err(OpcodeParseError::ErrorUnknownOpcode)
+                    .context("Invalid instruction found in the machine code file.")
+            }
+        });
+
+        instruction_string.push(' ');
+
+        // Concatenate the jump label
+        if has_label(self.opcode) {
+            let label = match symbol_table.find_name(self.dest_addr) {
+                Some(label) => label,
+                None => {
+                    return Err(SymbolTableError::ErrorLabelNotFound)
+                        .context("[INTERNAL ERROR] Label not found in symbol table.")
+                }
+            };
+
+            instruction_string.push_str(label);
+        }
+
+        instruction_string.push('\n');
+
+        Ok(instruction_string)
     }
 
     fn encode(&self) -> u32 {

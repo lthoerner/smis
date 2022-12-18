@@ -1,9 +1,9 @@
 use crate::errors::RegisterParseError;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 // Gets a generic label name based on the given label number
 pub fn generate_label_name(label_number: u16) -> String {
-    format!("label_{}", label_number)
+    format!("Label_{}", label_number)
 }
 
 // Formats a register number into a string
