@@ -131,10 +131,25 @@ fn disassemble_instructions(bin_file: &File, symbol_table: &SymbolTable) -> Resu
         .map_err(|_| FileHandlerError::FileRewindFailed)
         .context("[INTERNAL ERROR] Couldn't rewind the machine code file for disassembler pass.")?;
 
+    // Current address is stored to determine if a label should be printed
+    let mut current_address: u16 = 0x00;
+
     let mut disassembled_instructions = Vec::<String>::new();
 
     // Read each instruction from the file
     loop {
+        // If the label exists in the symbol table, add it to the Vec
+        match symbol_table.find_name(current_address) {
+            // If a label appears at the beginning of the file, leading line break is not added
+            Some(label) => disassembled_instructions.push(match current_address {
+                0x00 => format!("{}:\n", label),
+                _ => format!("\n{}:\n", label),
+            }),
+            None => (),
+        }
+
+        current_address += 2;
+
         // Stores the current instruction
         let mut buffer = [0; 4];
 
