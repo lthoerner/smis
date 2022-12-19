@@ -18,13 +18,13 @@ pub fn start_disassembler(bin_file_name: &str, asm_file_name: &str) -> Result<()
             .context(user_messages::USAGE_ERROR);
     }
 
-    // Open/create the input and output file
     if !asm_file_name.ends_with(".txt") {
         return Err(FileHandlerError::InvalidExtension)
-            .context("Output file must have a .txt extension.")
-            .context(user_messages::USAGE_ERROR);
+        .context("Output file must have a .txt extension.")
+        .context(user_messages::USAGE_ERROR);
     }
-
+    
+    // Open/create the input and output file
     let bin_file = match File::options().read(true).open(bin_file_name) {
         Ok(file) => file,
         Err(_) => {
