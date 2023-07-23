@@ -8,8 +8,6 @@ use utilities::user_messages;
 mod assembler;
 mod disassembler;
 mod emulator;
-mod errors;
-mod instruction;
 mod utilities;
 
 fn main() {
@@ -18,10 +16,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 4 {
-        panic!(
-            "Incorrect number of arguments!\n{}",
-            user_messages::USAGE_ERROR
-        );
+        panic!("Incorrect number of arguments!\n{}", user_messages::USAGE);
     }
 
     let target = &args[1];
@@ -29,15 +24,15 @@ fn main() {
     let output_file = &args[3];
 
     if !Path::new(input_file).exists() {
-        panic!("Input file does not exist!\n{}", user_messages::USAGE_ERROR);
+        panic!("Input file does not exist!\n{}", user_messages::USAGE);
     }
 
     match target.as_str() {
         "--assemble" | "-a" => {
             match assembler::start_assembler(input_file, output_file) {
                 Ok(_) => println!("File assembled successfully!"),
-                Err(err) => {
-                    for error in err.chain().rev().skip(1) {
+                Err(e) => {
+                    for error in e.chain().rev().skip(1) {
                         println!("{}", error);
                     }
                 }
@@ -46,18 +41,14 @@ fn main() {
         "--disassemble" | "-d" => {
             match disassembler::start_disassembler(input_file, output_file) {
                 Ok(_) => println!("File disassembled successfully!"),
-                Err(err) => {
-                    for error in err.chain().rev().skip(1) {
+                Err(e) => {
+                    for error in e.chain().rev().skip(1) {
                         println!("{}", error);
                     }
                 }
             };
         }
-        _ => panic!(
-            "Invalid target \"{}\"!\n{}",
-            target,
-            user_messages::USAGE_ERROR
-        ),
+        _ => panic!("Invalid target \"{}\"!\n{}", target, user_messages::USAGE),
     }
 
     // println!("Time elapsed: {}ns", now.elapsed().as_nanos());

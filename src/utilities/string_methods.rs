@@ -1,10 +1,10 @@
-pub trait SMISString {
+pub trait SmisString {
     fn count_words(&self) -> usize;
     fn get_word(&self, index: usize) -> Option<&str>;
     fn without_first_word(&self) -> String;
 }
 
-impl<'a> SMISString for &'a str {
+impl<'a> SmisString for &'a str {
     fn count_words(&self) -> usize {
         self.split_whitespace().count()
     }

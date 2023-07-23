@@ -1,4 +1,4 @@
-use super::instruction_container::*;
+use super::instructions::{ITypeInstruction, Instruction, JTypeInstruction, RTypeInstruction};
 
 // Opcode constants
 pub const OP_SET: u8 = 0x01;
@@ -137,52 +137,80 @@ pub fn get_opcode(mnemonic: &str) -> Option<u8> {
 }
 
 // Uses the given opcode to return an enum with fields based on the instruction format
-pub fn get_instruction_container(opcode: u8) -> Option<InstructionContainer> {
-    Some(match opcode {
-        OP_COPY | OP_ADD | OP_SUBTRACT | OP_MULTIPLY | OP_DIVIDE | OP_MODULO | OP_COMPARE
-        | OP_SHIFT_LEFT | OP_SHIFT_RIGHT | OP_AND | OP_OR | OP_XOR | OP_NAND | OP_NOR | OP_NOT => {
-            InstructionContainer::RFormat(RFormat {
-                opcode,
-                ..RFormat::default()
-            })
-        }
-        OP_SET | OP_ADD_IMM | OP_SUBTRACT_IMM | OP_MULTIPLY_IMM | OP_DIVIDE_IMM | OP_MODULO_IMM
-        | OP_COMPARE_IMM | OP_SHIFT_LEFT_IMM | OP_SHIFT_RIGHT_IMM | OP_AND_IMM | OP_OR_IMM
-        | OP_XOR_IMM | OP_NAND_IMM | OP_NOR_IMM | OP_LOAD | OP_STORE => {
-            InstructionContainer::IFormat(IFormat {
-                opcode,
-                ..IFormat::default()
-            })
-        }
-        OP_JUMP | OP_JUMP_IF_ZERO | OP_JUMP_IF_NOTZERO | OP_JUMP_LINK | OP_HALT => {
-            InstructionContainer::JFormat(JFormat {
-                opcode,
-                ..JFormat::default()
-            })
-        }
-        _ => return None,
+pub fn get_instruction(opcode: u8) -> Option<Box<dyn Instruction>> {
+    Some(if is_r_type(opcode) {
+        Box::new(RTypeInstruction::new(opcode))
+    } else if is_i_type(opcode) {
+        Box::new(ITypeInstruction::new(opcode))
+    } else if is_j_type(opcode) {
+        Box::new(JTypeInstruction::new(opcode))
+    } else {
+        return None;
     })
 }
 
-pub fn is_jump(opcode: u8) -> bool {
+pub fn is_r_type(opcode: u8) -> bool {
     matches!(
-        get_instruction_container(opcode),
-        Some(InstructionContainer::JFormat(_))
+        opcode,
+        OP_COPY
+            | OP_ADD
+            | OP_SUBTRACT
+            | OP_MULTIPLY
+            | OP_DIVIDE
+            | OP_MODULO
+            | OP_COMPARE
+            | OP_SHIFT_LEFT
+            | OP_SHIFT_RIGHT
+            | OP_AND
+            | OP_OR
+            | OP_XOR
+            | OP_NAND
+            | OP_NOR
+            | OP_NOT
     )
 }
 
-pub fn has_dest(opcode: u8) -> bool {
+pub fn is_i_type(opcode: u8) -> bool {
+    matches!(
+        opcode,
+        OP_SET
+            | OP_ADD_IMM
+            | OP_SUBTRACT_IMM
+            | OP_MULTIPLY_IMM
+            | OP_DIVIDE_IMM
+            | OP_MODULO_IMM
+            | OP_COMPARE_IMM
+            | OP_SHIFT_LEFT_IMM
+            | OP_SHIFT_RIGHT_IMM
+            | OP_AND_IMM
+            | OP_OR_IMM
+            | OP_XOR_IMM
+            | OP_NAND_IMM
+            | OP_NOR_IMM
+            | OP_LOAD
+            | OP_STORE
+    )
+}
+
+pub fn is_j_type(opcode: u8) -> bool {
+    matches!(
+        opcode,
+        OP_JUMP | OP_JUMP_IF_ZERO | OP_JUMP_IF_NOTZERO | OP_JUMP_LINK | OP_HALT
+    )
+}
+
+pub fn has_destination_register(opcode: u8) -> bool {
     !matches!(opcode, OP_COMPARE | OP_COMPARE_IMM)
 }
 
-pub fn has_reg_op1(opcode: u8) -> bool {
+pub fn has_operand_1_register(opcode: u8) -> bool {
     !matches!(opcode, OP_SET)
 }
 
-pub fn has_reg_op2(opcode: u8) -> bool {
+pub fn has_operand_2_register(opcode: u8) -> bool {
     !matches!(opcode, OP_COPY | OP_NOT)
 }
 
-pub fn has_label(opcode: u8) -> bool {
+pub fn has_jump_label(opcode: u8) -> bool {
     !matches!(opcode, OP_HALT)
 }
