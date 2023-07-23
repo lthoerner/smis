@@ -1,6 +1,7 @@
 pub mod errors;
 pub mod instructions;
+pub mod messages;
 pub mod opcode_utilities;
-pub mod string_methods;
+mod string_methods;
+pub use string_methods::SmisString;
 pub mod symbol_table;
-pub mod user_messages;

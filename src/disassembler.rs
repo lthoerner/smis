@@ -1,8 +1,7 @@
 use crate::utilities::{
     errors::*,
-    opcode_utilities,
+    messages, opcode_utilities,
     symbol_table::{self, SymbolTable},
-    user_messages,
 };
 use anyhow::{Context, Result};
 use std::fs::File;
@@ -14,13 +13,13 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
     if !binary_filename.ends_with(".bin") {
         return Err(FileHandlerError::InvalidExtension)
             .context("Input file must have a .bin extension.")
-            .context(user_messages::USAGE);
+            .context(messages::USAGE);
     }
 
     if !assembly_filename.ends_with(".txt") {
         return Err(FileHandlerError::InvalidExtension)
             .context("Output file must have a .txt extension.")
-            .context(user_messages::USAGE);
+            .context(messages::USAGE);
     }
 
     // Open/create the input and output file
@@ -29,7 +28,7 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
         Err(_) => {
             return Err(FileHandlerError::FileOpenFailed)
                 .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
-                .context(user_messages::USAGE);
+                .context(messages::USAGE);
         }
     };
 
@@ -42,7 +41,7 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
         Err(_) => {
             return Err(FileHandlerError::FileOpenFailed)
                 .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
-                .context(user_messages::USAGE);
+                .context(messages::USAGE);
         }
     };
 

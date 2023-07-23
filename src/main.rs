@@ -3,7 +3,7 @@
 #![allow(non_snake_case)]
 
 use std::path::Path;
-use utilities::user_messages;
+use utilities::messages;
 
 mod assembler;
 mod disassembler;
@@ -16,7 +16,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 4 {
-        panic!("Incorrect number of arguments!\n{}", user_messages::USAGE);
+        panic!("Incorrect number of arguments!\n{}", messages::USAGE);
     }
 
     let target = &args[1];
@@ -24,7 +24,7 @@ fn main() {
     let output_file = &args[3];
 
     if !Path::new(input_file).exists() {
-        panic!("Input file does not exist!\n{}", user_messages::USAGE);
+        panic!("Input file does not exist!\n{}", messages::USAGE);
     }
 
     match target.as_str() {
@@ -48,7 +48,7 @@ fn main() {
                 }
             };
         }
-        _ => panic!("Invalid target \"{}\"!\n{}", target, user_messages::USAGE),
+        _ => panic!("Invalid target \"{}\"!\n{}", target, messages::USAGE),
     }
 
     // println!("Time elapsed: {}ns", now.elapsed().as_nanos());

@@ -1,9 +1,8 @@
 use crate::utilities::{
     errors::*,
-    opcode_utilities,
-    string_methods::SmisString,
+    messages, opcode_utilities,
     symbol_table::{self, SymbolTable},
-    user_messages,
+    SmisString,
 };
 use anyhow::{Context, Result};
 use std::fs::File;
@@ -15,25 +14,25 @@ pub fn start_assembler(assembly_filename: &str, binary_filename: &str) -> Result
     if !assembly_filename.ends_with(".txt") {
         return Err(FileHandlerError::InvalidExtension)
             .context("Input file must have a .txt extension.")
-            .context(user_messages::USAGE);
+            .context(messages::USAGE);
     }
 
     if !binary_filename.ends_with(".bin") {
         return Err(FileHandlerError::InvalidExtension)
             .context("Output file must have a .bin extension.")
-            .context(user_messages::USAGE);
+            .context(messages::USAGE);
     }
 
     // Open/create the input and output file
     let assembly_file = File::options().read(true).open(assembly_filename)
         .map_err(|_| FileHandlerError::FileOpenFailed)
         .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
-        .context(user_messages::USAGE)?;
+        .context(messages::USAGE)?;
 
     let mut binary_file = File::options().write(true).create(true).open(binary_filename)
         .map_err(|_| FileHandlerError::FileCreateFailed)
         .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
-        .context(user_messages::USAGE)?;
+        .context(messages::USAGE)?;
 
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&assembly_file)?;
