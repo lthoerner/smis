@@ -12,7 +12,7 @@ mod emulator;
 mod utilities;
 
 fn main() {
-    // let now = std::time::Instant::now();
+    let start_time = std::time::Instant::now();
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -33,7 +33,10 @@ fn main() {
     match target.as_str() {
         "assemble" => {
             match assembler::start_assembler(input_file, output_file) {
-                Ok(_) => println!("File assembled successfully!"),
+                Ok(_) => println!(
+                    "File assembled successfully in {}ns",
+                    start_time.elapsed().as_nanos()
+                ),
                 Err(e) => {
                     for error in e.chain().rev().skip(1) {
                         println!("{}", error);
@@ -43,7 +46,10 @@ fn main() {
         }
         "disassemble" => {
             match disassembler::start_disassembler(input_file, output_file) {
-                Ok(_) => println!("File disassembled successfully!"),
+                Ok(_) => println!(
+                    "File disassembled successfully in {}ns",
+                    start_time.elapsed().as_nanos()
+                ),
                 Err(e) => {
                     for error in e.chain().rev().skip(1) {
                         println!("{}", error);
@@ -56,6 +62,4 @@ fn main() {
             exit(3);
         }
     }
-
-    // println!("Time elapsed: {}ns", now.elapsed().as_nanos());
 }
