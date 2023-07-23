@@ -3,6 +3,7 @@
 #![allow(non_snake_case)]
 
 use std::path::Path;
+use std::process::exit;
 use utilities::messages;
 
 mod assembler;
@@ -16,7 +17,8 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 4 {
-        panic!("Incorrect number of arguments!\n{}", messages::USAGE);
+        println!("Incorrect number of arguments!\n{}", messages::USAGE);
+        exit(1);
     }
 
     let target = &args[1];
@@ -24,11 +26,12 @@ fn main() {
     let output_file = &args[3];
 
     if !Path::new(input_file).exists() {
-        panic!("Input file does not exist!\n{}", messages::USAGE);
+        println!("Input file does not exist!\n{}", messages::USAGE);
+        exit(2);
     }
 
     match target.as_str() {
-        "--assemble" | "-a" => {
+        "assemble" => {
             match assembler::start_assembler(input_file, output_file) {
                 Ok(_) => println!("File assembled successfully!"),
                 Err(e) => {
@@ -38,7 +41,7 @@ fn main() {
                 }
             };
         }
-        "--disassemble" | "-d" => {
+        "disassemble" => {
             match disassembler::start_disassembler(input_file, output_file) {
                 Ok(_) => println!("File disassembled successfully!"),
                 Err(e) => {
@@ -48,7 +51,10 @@ fn main() {
                 }
             };
         }
-        _ => panic!("Invalid target \"{}\"!\n{}", target, messages::USAGE),
+        _ => {
+            println!("Invalid target \"{}\"!\n{}", target, messages::USAGE);
+            exit(3);
+        }
     }
 
     // println!("Time elapsed: {}ns", now.elapsed().as_nanos());
