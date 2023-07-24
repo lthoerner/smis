@@ -1,6 +1,7 @@
 use crate::utilities::{
     errors::*,
-    messages, opcode_utilities,
+    instructions::InstructionFormat,
+    messages, opcodes,
     symbol_table::{self, SymbolTable},
     SmisString,
 };
@@ -141,21 +142,19 @@ fn assemble_instructions(assembly_file: &File, symbol_table: &SymbolTable) -> Re
         let opcode =
             get_opcode_from_instruction_text(line).context(format!("On line: {}", line_count))?;
 
-        // Gets an InstructionContainer with the necessary format and the given opcode
-        let mut instruction =
-            match opcode_utilities::get_instruction(opcode) {
-                Some(instruction) => instruction,
-                None => return Err(OpcodeParseError::UnknownOpcode).context(
-                    "[INTERNAL ERROR] Used an invalid opcode to create an instruction container.",
-                ),
-            };
+        // Gets an Instruction with the necessary format and the given opcode
+        let mut instruction = match opcodes::get_instruction(opcode) {
+            Some(instruction) => instruction,
+            None => {
+                return Err(OpcodeParseError::UnknownOpcode)
+                    .context("[INTERNAL ERROR] Used an invalid opcode to create an instruction.")
+            }
+        };
 
-        // Assemble the instruction and add it to the Vec
+        // Assemble and encode the instruction, then add it to the Vec
         instruction
             .assemble(line, symbol_table)
             .context(format!("On line: {}", line_count))?;
-
-        // Encode the assembled instruction and add it to the Vec
         assembled_instructions.push(instruction.encode());
     }
 
@@ -165,7 +164,7 @@ fn assemble_instructions(assembly_file: &File, symbol_table: &SymbolTable) -> Re
 // Takes the instruction, gets the mnemonic, and translates it into an opcode
 pub fn get_opcode_from_instruction_text(instruction: &str) -> Result<u8> {
     match instruction.get_word(0) {
-        Some(mnemonic) => match opcode_utilities::get_opcode(mnemonic) {
+        Some(mnemonic) => match opcodes::get_opcode(mnemonic) {
             Some(opcode) => Ok(opcode),
             None => Err(MnemonicParseError::UnknownMnemonic)
                 .context("Unknown or malformed mnemonic.")

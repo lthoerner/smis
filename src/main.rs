@@ -8,7 +8,7 @@ use utilities::messages;
 
 mod assembler;
 mod disassembler;
-mod emulator;
+// mod emulator;
 mod utilities;
 
 fn main() {
@@ -21,6 +21,7 @@ fn main() {
         exit(1);
     }
 
+    // TODO: Argument parsing for emulator
     let target = &args[1];
     let input_file = &args[2];
     let output_file = &args[3];
@@ -57,6 +58,19 @@ fn main() {
                 }
             };
         }
+        // "run" => {
+        //     match emulator::start_emulator(input_file) {
+        //         Ok(_) => println!(
+        //             "Program run successfully in {}ns",
+        //             start_time.elapsed().as_nanos()
+        //         ),
+        //         Err(e) => {
+        //             for error in e.chain().rev().skip(1) {
+        //                 println!("{}", error);
+        //             }
+        //         }
+        //     };
+        // }
         _ => {
             println!("Invalid target \"{}\"!\n{}", target, messages::USAGE);
             exit(3);

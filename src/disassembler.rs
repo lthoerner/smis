@@ -1,6 +1,7 @@
 use crate::utilities::{
     errors::*,
-    messages, opcode_utilities,
+    instructions::InstructionFormat,
+    messages, opcodes,
     symbol_table::{self, SymbolTable},
 };
 use anyhow::{Context, Result};
@@ -79,14 +80,10 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
     let mut symbol_table = symbol_table::new();
 
     let mut reader = BufReader::new(binary_file);
-    match reader.rewind() {
-        Ok(_) => (),
-        Err(_) => {
-            return Err(FileHandlerError::FileRewindFailed).context(
-                "[INTERNAL ERROR] Couldn't rewind the machine code file for symbol table pass.",
-            )
-        }
-    }
+    reader
+        .rewind()
+        .map_err(|_| FileHandlerError::FileRewindFailed)
+        .context("[INTERNAL ERROR] Couldn't rewind the machine code file for symbol table pass.")?;
 
     // Store the current label number
     let mut current_label: u16 = 0;
@@ -101,9 +98,10 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
             Ok(_) => (),
             Err(e) => match e.kind() {
                 ErrorKind::UnexpectedEof => break,
-                _ => return Err(FileHandlerError::FileReadFailed).context(
-                    "[INTERNAL ERROR] Couldn't read the machine code file for symbol table pass.",
-                ),
+                _ => {
+                    return Err(FileHandlerError::FileReadFailed)
+                        .context("The provided machine code file contains malformed instructions and therefore is invalid or corrupted.")
+                }
             },
         }
 
@@ -111,7 +109,7 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
         let instruction = u32::from_be_bytes(buffer);
 
         // If the instruction is a J-Type and its label is unique, add it to the symbol table
-        if opcode_utilities::is_j_type(extract_opcode(instruction)) {
+        if opcodes::is_j_type(opcodes::extract_opcode(instruction)) {
             let label_address = extract_address(instruction);
 
             if !symbol_table.contains(label_address) {
@@ -125,6 +123,7 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
     Ok(symbol_table)
 }
 
+// TODO: Split this function into smaller functions
 // Reads the machine code file and returns a Vec of the disassembled instructions
 fn disassemble_instructions(binary_file: &File, symbol_table: &SymbolTable) -> Result<Vec<String>> {
     let mut reader = BufReader::new(binary_file);
@@ -168,20 +167,18 @@ fn disassemble_instructions(binary_file: &File, symbol_table: &SymbolTable) -> R
         // Take the bytes and put them in a single u32, converting from network byte order if needed
         let encoded_instruction = u32::from_be_bytes(buffer);
 
-        // Gets an InstructionContainer with the necessary format and the given opcode
+        // Gets an Instruction with the necessary format and the given opcode
         let mut instruction =
-            match opcode_utilities::get_instruction(extract_opcode(encoded_instruction)) {
-                Some(container) => container,
+            match opcodes::get_instruction(opcodes::extract_opcode(encoded_instruction)) {
+                Some(instruction) => instruction,
                 None => {
                     return Err(OpcodeParseError::UnknownOpcode)
                         .context("Invalid instruction found in the machine code file.")
                 }
             };
 
-        // Populate the fields of the container with the data from the instruction
+        // Decode and disassemble the instruction, then add it to the Vec
         instruction.decode(encoded_instruction);
-
-        // Disassemble the instruction into a String and add it to the Vec
         disassembled_instructions.push(instruction.disassemble(symbol_table)?);
     }
 
@@ -216,11 +213,6 @@ pub fn format_register(register: u8) -> Result<String> {
 // Formats an immediate value into a string
 pub fn format_immediate(immediate: u16) -> String {
     format!("#{}", immediate)
-}
-
-// Gets the first 8 bits of the instruction (the opcode)
-pub fn extract_opcode(instruction: u32) -> u8 {
-    ((instruction & 0xFF000000) >> 24) as u8
 }
 
 // Gets an indexed register operand from the instruction
