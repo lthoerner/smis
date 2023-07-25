@@ -3,7 +3,7 @@ use crate::utilities::{
     instructions::{Instruction, InstructionContainer},
     messages,
     opcodes::Opcode,
-    symbol_table::{self, SymbolTable},
+    symbol_table::SymbolTable,
     SmisString,
 };
 use anyhow::{Context, Result};
@@ -65,7 +65,7 @@ fn write_output(binary_file: &mut File, assembled_instructions: &Vec<u32>) -> Re
 // Scans the input ASM file for labels, and adds them to the symbol table for use later
 fn read_labels(assembly_file: &File) -> Result<SymbolTable> {
     // Stores all labels found in the file along with their corresponding instruction addressses
-    let mut symbol_table = symbol_table::new();
+    let mut symbol_table = SymbolTable::default();
 
     let mut reader = BufReader::new(assembly_file);
     reader

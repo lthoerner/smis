@@ -3,7 +3,7 @@ use crate::utilities::{
     instructions::{Instruction, InstructionContainer},
     messages,
     opcodes::{self, EncodingFormat},
-    symbol_table::{self, SymbolTable},
+    symbol_table::SymbolTable,
 };
 use anyhow::{Context, Result};
 use std::fs::File;
@@ -68,7 +68,7 @@ fn write_output(assembly_file: &mut File, disassembled_instructions: Vec<String>
 // Scans the input machine code file for labels, and adds them to the symbol table for use later
 fn read_labels(binary_file: &File) -> Result<SymbolTable> {
     // Stores all labels found in the file
-    let mut symbol_table = symbol_table::new();
+    let mut symbol_table = SymbolTable::default();
 
     let mut reader = BufReader::new(binary_file);
     reader
