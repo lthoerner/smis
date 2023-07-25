@@ -87,18 +87,7 @@ fn read_labels(assembly_file: &File) -> Result<SymbolTable> {
 
         // Add any labels to the symbol table
         if is_label(line) {
-            // TODO: Add get_label_name() and refactor
-            symbol_table.add_label(
-                match line.strip_suffix(':') {
-                    Some(name) => name,
-                    // This should never happen, as the above condition requires the line to end in ':'
-                    None => {
-                        return Err(SymbolTableError::CouldNotAddLabel)
-                            .context("[INTERNAL ERROR] Label was missing suffix.")
-                    }
-                },
-                current_address,
-            );
+            symbol_table.add_label(line, current_address)?;
         }
 
         // Current address is incremented by 2 because all instructions

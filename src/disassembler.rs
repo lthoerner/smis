@@ -110,7 +110,7 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
             let label_address = extract_address(encoded_instruction);
 
             if !symbol_table.contains(label_address) {
-                symbol_table.add_label(generate_label_name(current_label).as_str(), label_address);
+                symbol_table.add_label(&generate_label_name(current_label), label_address)?;
 
                 current_label += 1;
             }

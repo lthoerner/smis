@@ -1,3 +1,6 @@
+use crate::utilities::errors::*;
+use anyhow::{Context, Result};
+
 // Represents the symbol table, which is a collection of all the Labels in the program
 #[derive(Debug, Default)]
 pub struct SymbolTable {
@@ -13,11 +16,19 @@ pub struct Label {
 
 impl SymbolTable {
     // Adds a label to the symbol table
-    pub fn add_label(&mut self, name: &str, address: u16) {
+    // It should be ensured that the label is valid before calling this function
+    pub fn add_label(&mut self, unformatted_label_name: &str, address: u16) -> Result<()> {
+        let Some(name) = unformatted_label_name.strip_suffix(':') else {
+            return Err(SymbolTableError::CouldNotAddLabel)
+                .context("[INTERNAL ERROR] Label was missing ':' suffix or was otherwise malformed.")
+        };
+
         self.labels.push(Label {
             name: name.to_owned(),
             address,
         });
+
+        Ok(())
     }
 
     // Gets the corresponding label address in the symbol table for a given label name
