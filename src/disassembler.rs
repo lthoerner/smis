@@ -1,7 +1,6 @@
 use crate::utilities::{
     errors::*,
     instructions::{Instruction, InstructionContainer},
-    messages,
     opcodes::{self, EncodingFormat},
     symbol_table::SymbolTable,
 };
@@ -14,14 +13,12 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
     // Ensure the input and output files have the correct extensions
     if !binary_filename.ends_with(".bin") {
         return Err(FileHandlerError::InvalidExtension)
-            .context("Input file must have a .bin extension.")
-            .context(messages::USAGE);
+            .context("Input file must have a .bin extension.");
     }
 
     if !assembly_filename.ends_with(".txt") {
         return Err(FileHandlerError::InvalidExtension)
-            .context("Output file must have a .txt extension.")
-            .context(messages::USAGE);
+            .context("Output file must have a .txt extension.");
     }
 
     // Open/create the input and output file
