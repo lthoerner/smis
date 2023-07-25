@@ -2,38 +2,30 @@
 // despite the fact that it's an acronym and should be all caps
 #![allow(non_snake_case)]
 
+use args::{AssembleCommand, DisassembleCommand, RunCommand, SmisArgs, SmisSubcommand};
+use clap::Parser;
 use std::path::Path;
 use std::process::exit;
-use utilities::messages;
 
+mod args;
 mod assembler;
 mod disassembler;
-// mod emulator;
+mod emulator;
 mod utilities;
 
 fn main() {
     let start_time = std::time::Instant::now();
 
-    let args: Vec<String> = std::env::args().collect();
+    // TODO: Deduplicate error handling
+    let args = SmisArgs::parse();
+    match args.subcommand {
+        SmisSubcommand::Assemble(AssembleCommand {
+            input_filename,
+            output_filename,
+        }) => {
+            assert_file_exists(&input_filename);
 
-    if args.len() != 4 {
-        println!("Incorrect number of arguments!\n{}", messages::USAGE);
-        exit(1);
-    }
-
-    // TODO: Argument parsing for emulator
-    let target = &args[1];
-    let input_file = &args[2];
-    let output_file = &args[3];
-
-    if !Path::new(input_file).exists() {
-        println!("Input file does not exist!\n{}", messages::USAGE);
-        exit(2);
-    }
-
-    match target.as_str() {
-        "assemble" => {
-            match assembler::start_assembler(input_file, output_file) {
+            match assembler::start_assembler(&input_filename, &output_filename) {
                 Ok(_) => println!(
                     "File assembled successfully in {}ns",
                     start_time.elapsed().as_nanos()
@@ -45,8 +37,13 @@ fn main() {
                 }
             };
         }
-        "disassemble" => {
-            match disassembler::start_disassembler(input_file, output_file) {
+        SmisSubcommand::Disassemble(DisassembleCommand {
+            input_filename,
+            output_filename,
+        }) => {
+            assert_file_exists(&input_filename);
+
+            match disassembler::start_disassembler(&input_filename, &output_filename) {
                 Ok(_) => println!(
                     "File disassembled successfully in {}ns",
                     start_time.elapsed().as_nanos()
@@ -58,22 +55,29 @@ fn main() {
                 }
             };
         }
-        // "run" => {
-        //     match emulator::start_emulator(input_file) {
-        //         Ok(_) => println!(
-        //             "Program run successfully in {}ns",
-        //             start_time.elapsed().as_nanos()
-        //         ),
-        //         Err(e) => {
-        //             for error in e.chain().rev().skip(1) {
-        //                 println!("{}", error);
-        //             }
-        //         }
-        //     };
-        // }
-        _ => {
-            println!("Invalid target \"{}\"!\n{}", target, messages::USAGE);
-            exit(3);
+        SmisSubcommand::Run(RunCommand {
+            machine_code_filename,
+        }) => {
+            assert_file_exists(&machine_code_filename);
+
+            match emulator::start_emulator(&machine_code_filename) {
+                Ok(_) => println!(
+                    "Program run successfully in {}ns",
+                    start_time.elapsed().as_nanos()
+                ),
+                Err(e) => {
+                    for error in e.chain().rev().skip(1) {
+                        println!("{}", error);
+                    }
+                }
+            };
         }
+    }
+}
+
+fn assert_file_exists(filename: &str) {
+    if !Path::new(filename).exists() {
+        println!("File '{}' does not exist!", filename);
+        exit(2);
     }
 }

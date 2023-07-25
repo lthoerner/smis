@@ -4,315 +4,346 @@ use crate::disassembler::*;
 use crate::utilities::{opcodes::*, string_methods::SmisString, symbol_table::SymbolTable};
 use anyhow::{Context, Result};
 
-pub enum Instruction {
+pub trait Instruction<'a>:
+    TryFrom<(&'a str, &'a SymbolTable), Error = anyhow::Error>
+    + TryFrom<u32, Error = anyhow::Error>
+    + Into<u32>
+{
+    // Assembles an Instruction from a string (alternate syntax for TryFrom<(&str, &SymbolTable)>)
+    fn assemble(instruction_text: &'a str, symbol_table: &'a SymbolTable) -> Result<Self> {
+        Self::try_from((instruction_text, symbol_table))
+            .context("Encountered invalid or malformed instruction.")
+            .context(format!("At: '{}'", instruction_text))
+    }
+
+    // Disassembles an Instruction into a string
+    fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String>;
+
+    // Encodes an Instruction into a u32 (alternate syntax for Into<u32>)
+    fn encode(self) -> u32 {
+        self.into()
+    }
+
+    // Decodes an Instruction from a u32 (alternate syntax for TryFrom<u32>)
+    fn decode(encoded_instruction: u32) -> Result<Self> {
+        Self::try_from(encoded_instruction)
+    }
+}
+
+pub enum InstructionContainer {
     R(RTypeInstruction),
     I(ITypeInstruction),
     J(JTypeInstruction),
 }
 
-pub trait InstructionFormat {
-    // Assembles an Instruction from a string
-    fn assemble(&mut self, instruction_text: &str, symbol_table: &SymbolTable) -> Result<()>;
-    // Disassembles an Instruction into a string
-    fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String>;
-    // Encodes an Instruction into a u32
-    fn encode(&self) -> u32;
-    // Decodes an Instruction from a u32
-    fn decode(&mut self, encoded_instruction: u32);
-}
-
-// Passthrough implementations for Instruction variants
+// Passthrough implementations for InstructionContainer variants
 // See trait for method descriptions
-impl InstructionFormat for Instruction {
-    fn assemble(&mut self, instruction_text: &str, symbol_table: &SymbolTable) -> Result<()> {
-        match self {
-            Instruction::R(r_type_instruction) => {
-                r_type_instruction.assemble(instruction_text, symbol_table)
-            }
-            Instruction::I(i_type_instruction) => {
-                i_type_instruction.assemble(instruction_text, symbol_table)
-            }
-            Instruction::J(j_type_instruction) => {
-                j_type_instruction.assemble(instruction_text, symbol_table)
-            }
-        }
-    }
-
+impl<'a> Instruction<'a> for InstructionContainer {
     fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String> {
         match self {
-            Instruction::R(r_type_instruction) => r_type_instruction.disassemble(symbol_table),
-            Instruction::I(i_type_instruction) => i_type_instruction.disassemble(symbol_table),
-            Instruction::J(j_type_instruction) => j_type_instruction.disassemble(symbol_table),
+            InstructionContainer::R(r_type_instruction) => {
+                r_type_instruction.disassemble(symbol_table)
+            }
+            InstructionContainer::I(i_type_instruction) => {
+                i_type_instruction.disassemble(symbol_table)
+            }
+            InstructionContainer::J(j_type_instruction) => {
+                j_type_instruction.disassemble(symbol_table)
+            }
         }
     }
+}
 
-    fn encode(&self) -> u32 {
-        match self {
-            Instruction::R(r_type_instruction) => r_type_instruction.encode(),
-            Instruction::I(i_type_instruction) => i_type_instruction.encode(),
-            Instruction::J(j_type_instruction) => j_type_instruction.encode(),
-        }
+impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for InstructionContainer {
+    type Error = anyhow::Error;
+
+    fn try_from((instruction_text, symbol_table): (&'a str, &'a SymbolTable)) -> Result<Self> {
+        let opcode = get_opcode_from_mnemonic(instruction_text)?;
+        let encoding_format = EncodingFormat::from(opcode);
+
+        // Create an empty instruction container
+        let instruction = match encoding_format {
+            EncodingFormat::R => InstructionContainer::R(RTypeInstruction::try_from((
+                instruction_text,
+                symbol_table,
+            ))?),
+            EncodingFormat::I => InstructionContainer::I(ITypeInstruction::try_from((
+                instruction_text,
+                symbol_table,
+            ))?),
+            EncodingFormat::J => InstructionContainer::J(JTypeInstruction::try_from((
+                instruction_text,
+                symbol_table,
+            ))?),
+        };
+
+        Ok(instruction)
     }
+}
 
-    fn decode(&mut self, encoded_instruction: u32) {
+impl TryFrom<u32> for InstructionContainer {
+    type Error = anyhow::Error;
+
+    fn try_from(encoded_instruction: u32) -> Result<Self> {
+        // TODO: Error handle
+        let opcode = extract_opcode(encoded_instruction).unwrap();
+
+        let instruction = match opcode.into() {
+            EncodingFormat::R => {
+                InstructionContainer::R(RTypeInstruction::try_from(encoded_instruction)?)
+            }
+            EncodingFormat::I => {
+                InstructionContainer::I(ITypeInstruction::try_from(encoded_instruction)?)
+            }
+            EncodingFormat::J => {
+                InstructionContainer::J(JTypeInstruction::try_from(encoded_instruction)?)
+            }
+        };
+
+        Ok(instruction)
+    }
+}
+
+impl Into<u32> for InstructionContainer {
+    fn into(self) -> u32 {
         match self {
-            Instruction::R(r_type_instruction) => r_type_instruction.decode(encoded_instruction),
-            Instruction::I(i_type_instruction) => i_type_instruction.decode(encoded_instruction),
-            Instruction::J(j_type_instruction) => j_type_instruction.decode(encoded_instruction),
+            InstructionContainer::R(r_type_instruction) => r_type_instruction.into(),
+            InstructionContainer::I(i_type_instruction) => i_type_instruction.into(),
+            InstructionContainer::J(j_type_instruction) => j_type_instruction.into(),
         }
     }
 }
 
 // Instruction format structs
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct RTypeInstruction {
-    pub opcode: u8,
-    pub destination_register: u8,
-    pub operand_1_register: u8,
-    pub operand_2_register: u8,
+    pub opcode: Opcode,
+    pub destination_register: Option<u8>,
+    pub operand_1_register: Option<u8>,
+    pub operand_2_register: Option<u8>,
 }
 
-impl RTypeInstruction {
-    pub fn new(opcode: u8) -> Self {
-        Self {
-            opcode,
-            ..Self::default()
-        }
-    }
-}
-
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct ITypeInstruction {
-    pub opcode: u8,
-    pub destination_register: u8,
-    pub operand_1_register: u8,
+    pub opcode: Opcode,
+    pub destination_register: Option<u8>,
+    pub operand_1_register: Option<u8>,
     pub operand_2_immediate: u16,
 }
 
-impl ITypeInstruction {
-    pub fn new(opcode: u8) -> Self {
-        Self {
-            opcode,
-            ..Self::default()
-        }
-    }
-}
-
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct JTypeInstruction {
-    pub opcode: u8,
-    pub destination_memory_address: u16,
-}
-
-impl JTypeInstruction {
-    pub fn new(opcode: u8) -> Self {
-        Self {
-            opcode,
-            ..Self::default()
-        }
-    }
+    pub opcode: Opcode,
+    pub destination_memory_address: Option<u16>,
 }
 
 // See trait for method descriptions
-impl InstructionFormat for RTypeInstruction {
-    fn assemble(&mut self, instruction_text: &str, _symbol_table: &SymbolTable) -> Result<()> {
-        // COMPARE instructions do not have an destination register
-        // This could be renamed to compare_mode, but there could eventually be
-        // other instructions that also have no destination register
-        let has_destination_register = has_destination_register(self.opcode);
-        // PRINT instructions only use the destination register, which is called the
-        // "target register" in context of a PRINT instruction
-        let has_operand_1_register = has_operand_1_register(self.opcode);
-        // Similarly, NOT and COPY instructions do not have a second operand register
-        let has_operand_2_register = has_operand_2_register(self.opcode);
+impl<'a> Instruction<'a> for RTypeInstruction {
+    fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
+        let mut instruction_components = Vec::new();
+
+        // Append the mnemonic
+        instruction_components.push(self.opcode.to_string());
+
+        // Append the destination register
+        if let Some(destination_register) = self.destination_register {
+            instruction_components.push(format_register(destination_register)?);
+        }
+
+        // Append the first operand register
+        if let Some(operand_1_register) = self.operand_1_register {
+            instruction_components.push(format_register(operand_1_register)?);
+        }
+
+        // Append the second operand register
+        if let Some(operand_2_register) = self.operand_2_register {
+            instruction_components.push(format_register(operand_2_register)?);
+        }
+
+        Ok(instruction_components.join(" "))
+    }
+}
+
+impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for RTypeInstruction {
+    type Error = anyhow::Error;
+
+    fn try_from((instruction_text, _symbol_table): (&'a str, &'a SymbolTable)) -> Result<Self> {
+        let opcode = get_opcode_from_mnemonic(instruction_text)?;
+
+        let has_destination_register = should_have_destination_register(&opcode);
 
         // In the case of a missing destination register,
         // all the operand words are shifted over to the left
         let missing_destination_index_adjustment = !has_destination_register as usize;
 
-        // If there is no destination register, the destination_register field is left blank
-        if has_destination_register {
-            self.destination_register = get_register(instruction_text, 1)?;
-        }
+        // COMPARE instructions do not have an destination register
+        let destination_register = has_destination_register
+            .then(|| get_register(instruction_text, 1))
+            .transpose()?;
 
-        // If there is no first operand register, the operand_1_register field is left blank
-        if has_operand_1_register {
-            self.operand_1_register =
-                get_register(instruction_text, 2 - missing_destination_index_adjustment)?;
-        }
+        // PRINT instructions only use the destination register, which is called the
+        // "target register" in context of a PRINT instruction
+        let operand_1_register = should_have_operand_1_register(&opcode)
+            .then(|| get_register(instruction_text, 2 - missing_destination_index_adjustment))
+            .transpose()?;
 
-        // If there is no second operand register, the operand_2_register field is left blank
-        if has_operand_2_register {
-            self.operand_2_register =
-                get_register(instruction_text, 3 - missing_destination_index_adjustment)?;
-        }
+        // Similarly, NOT and COPY instructions do not have a second operand register
+        let operand_2_register = should_have_operand_2_register(&opcode)
+            .then(|| get_register(instruction_text, 3 - missing_destination_index_adjustment))
+            .transpose()?;
 
-        Ok(())
+        Ok(Self {
+            opcode,
+            destination_register,
+            operand_1_register,
+            operand_2_register,
+        })
     }
+}
 
-    fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
-        let mut instruction_string = String::new();
+impl TryFrom<u32> for RTypeInstruction {
+    type Error = anyhow::Error;
 
-        // Append the mnemonic
-        instruction_string.push_str(match get_mnemonic(self.opcode) {
-            Some(mnemonic) => mnemonic,
-            None => {
-                return Err(OpcodeParseError::UnknownOpcode)
-                    .context("Invalid instruction found in the machine code file.")
-            }
-        });
+    fn try_from(encoded_instruction: u32) -> Result<Self> {
+        // * This is only called if the instruction has been verified both
+        // * to have a valid opcode and to be an R-Type instruction
+        let opcode = extract_opcode(encoded_instruction).unwrap();
+        assert_eq!(EncodingFormat::R, opcode.clone().into());
 
-        instruction_string.push(' ');
+        let destination_register = should_have_destination_register(&opcode)
+            .then(|| extract_register(encoded_instruction, 0));
 
-        // Append the destination register
-        if has_destination_register(self.opcode) {
-            instruction_string.push_str(&format_register(self.destination_register)?);
-            instruction_string.push(' ');
-        }
+        let operand_1_register = should_have_operand_1_register(&opcode)
+            .then(|| extract_register(encoded_instruction, 1));
 
-        // Append the first operand register
-        instruction_string.push_str(&format_register(self.operand_1_register)?);
-        instruction_string.push(' ');
+        let operand_2_register = should_have_operand_2_register(&opcode)
+            .then(|| extract_register(encoded_instruction, 2));
 
-        // Append the second operand register
-        if has_operand_2_register(self.opcode) {
-            instruction_string.push_str(&format_register(self.operand_2_register)?);
-        }
-
-        instruction_string.push('\n');
-
-        Ok(instruction_string)
+        Ok(Self {
+            opcode,
+            destination_register,
+            operand_1_register,
+            operand_2_register,
+        })
     }
+}
 
-    fn encode(&self) -> u32 {
-        (self.opcode as u32) << 24
-            | (self.destination_register as u32) << 20
-            | (self.operand_1_register as u32) << 16
-            | (self.operand_2_register as u32) << 12
-    }
+impl Into<u32> for RTypeInstruction {
+    fn into(self) -> u32 {
+        let opcode = self.opcode.as_u8() as u32;
+        let destination_register = self.destination_register.unwrap_or_default() as u32;
+        let operand_1_register = self.operand_1_register.unwrap_or_default() as u32;
+        let operand_2_register = self.operand_2_register.unwrap_or_default() as u32;
 
-    fn decode(&mut self, encoded_instruction: u32) {
-        self.opcode = extract_opcode(encoded_instruction);
-        self.destination_register = extract_register(encoded_instruction, 0);
-        self.operand_1_register = extract_register(encoded_instruction, 1);
-        self.operand_2_register = extract_register(encoded_instruction, 2);
+        opcode << 24
+            | destination_register << 20
+            | operand_1_register << 16
+            | operand_2_register << 12
     }
 }
 
 // See trait for method descriptions
-impl InstructionFormat for ITypeInstruction {
-    fn assemble(&mut self, instruction_text: &str, _symbol_table: &SymbolTable) -> Result<()> {
-        // COMPARE-IMM instructions do not have a destination register
-        let has_destination_register = has_destination_register(self.opcode);
-        // Similarly, SET instructions do not have a register operand
-        let has_operand_1_register = has_operand_1_register(self.opcode);
-
-        // If there is no destination register, the destination_register field is left blank
-        if has_destination_register {
-            self.destination_register = get_register(instruction_text, 1)?;
-        }
-
-        // If there is no register operand, the operand_1_register field is left blank
-        if has_operand_1_register {
-            self.operand_1_register = get_register(instruction_text, 2)?
-        }
-
-        // All I-Format instructions are guaranteed to have an immediate operand
-        self.operand_2_immediate = get_immediate(instruction_text)?;
-
-        Ok(())
-    }
-
+impl<'a> Instruction<'a> for ITypeInstruction {
     fn disassemble(&self, _symbol_table: &SymbolTable) -> Result<String> {
-        let mut instruction_string = String::new();
+        let mut instruction_components = Vec::new();
 
         // Append the mnemonic
-        instruction_string.push_str(match get_mnemonic(self.opcode) {
-            Some(mnemonic) => mnemonic,
-            None => {
-                return Err(OpcodeParseError::UnknownOpcode)
-                    .context("Invalid instruction found in the machine code file.")
-            }
-        });
-
-        instruction_string.push(' ');
+        instruction_components.push(self.opcode.to_string());
 
         // Append the destination register
-        if has_destination_register(self.opcode) {
-            instruction_string.push_str(&format_register(self.destination_register)?);
-            instruction_string.push(' ');
+        if let Some(destination_register) = self.destination_register {
+            instruction_components.push(format_register(destination_register)?);
         }
 
         // Append the register operand
-        if has_operand_1_register(self.opcode) {
-            instruction_string.push_str(&format_register(self.operand_1_register)?);
-            instruction_string.push(' ');
+        if let Some(operand_1_register) = self.operand_1_register {
+            instruction_components.push(format_register(operand_1_register)?);
         }
 
         // Append the immediate operand
-        instruction_string.push_str(&format_immediate(self.operand_2_immediate));
+        instruction_components.push(format_immediate(self.operand_2_immediate));
 
-        instruction_string.push('\n');
-
-        Ok(instruction_string)
+        Ok(instruction_components.join(" "))
     }
+}
 
-    fn encode(&self) -> u32 {
-        (self.opcode as u32) << 24
-            | (self.destination_register as u32) << 20
-            | (self.operand_1_register as u32) << 16
-            | (self.operand_2_immediate as u32)
+impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for ITypeInstruction {
+    type Error = anyhow::Error;
+
+    fn try_from((instruction_text, _symbol_table): (&'a str, &'a SymbolTable)) -> Result<Self> {
+        let opcode = get_opcode_from_mnemonic(instruction_text)?;
+
+        // COMPARE-IMM instructions do not have a destination register
+        let destination_register = should_have_destination_register(&opcode)
+            .then(|| get_register(instruction_text, 1))
+            .transpose()?;
+
+        // Similarly, SET instructions do not have a register operand
+        let operand_1_register = should_have_operand_1_register(&opcode)
+            .then(|| get_register(instruction_text, 2))
+            .transpose()?;
+
+        // All I-Format instructions are guaranteed to have an immediate operand
+        let operand_2_immediate = get_immediate(instruction_text)?;
+
+        Ok(Self {
+            opcode,
+            destination_register,
+            operand_1_register,
+            operand_2_immediate,
+        })
     }
+}
 
-    fn decode(&mut self, encoded_instruction: u32) {
-        self.opcode = extract_opcode(encoded_instruction);
-        self.destination_register = extract_register(encoded_instruction, 0);
-        self.operand_1_register = extract_register(encoded_instruction, 1);
-        self.operand_2_immediate = extract_immediate(encoded_instruction);
+impl TryFrom<u32> for ITypeInstruction {
+    type Error = anyhow::Error;
+
+    fn try_from(encoded_instruction: u32) -> Result<Self> {
+        // * This is only called if the instruction has been verified both
+        // * to have a valid opcode and to be an I-Type instruction
+        let opcode = extract_opcode(encoded_instruction).unwrap();
+        assert_eq!(EncodingFormat::I, opcode.clone().into());
+
+        let destination_register = should_have_destination_register(&opcode)
+            .then(|| extract_register(encoded_instruction, 0));
+
+        let operand_1_register = should_have_operand_1_register(&opcode)
+            .then(|| extract_register(encoded_instruction, 1));
+
+        // All I-Format instructions are guaranteed to have an immediate operand
+        let operand_2_immediate = extract_immediate(encoded_instruction);
+
+        Ok(Self {
+            opcode,
+            destination_register,
+            operand_1_register,
+            operand_2_immediate,
+        })
+    }
+}
+
+impl Into<u32> for ITypeInstruction {
+    fn into(self) -> u32 {
+        let opcode = self.opcode.as_u8() as u32;
+        let destination_register = self.destination_register.unwrap_or_default() as u32;
+        let operand_1_register = self.operand_1_register.unwrap_or_default() as u32;
+        let operand_2_immediate = self.operand_2_immediate as u32;
+
+        opcode << 24 | destination_register << 20 | operand_1_register << 16 | operand_2_immediate
     }
 }
 
 // See trait for method descriptions
-impl InstructionFormat for JTypeInstruction {
-    fn assemble(&mut self, instruction_text: &str, symbol_table: &SymbolTable) -> Result<()> {
-        // HALT instructions do not have a destination label
-        let has_jump_label = has_jump_label(self.opcode);
-
-        // Skip address resolution for instructions with no destination label
-        if has_jump_label {
-            let label = instruction_text.without_first_word();
-
-            // Get the destination address of a given label name, if it is not a HALT
-            self.destination_memory_address = match symbol_table.find_address(label.trim()) {
-                Some(address) => address,
-                None => {
-                    return Err(SymbolTableError::LabelNotFound)
-                        .context("Label not found in symbol table.")
-                        .context(format!("At: '{}'", label))
-                }
-            };
-        }
-
-        Ok(())
-    }
-
+impl<'a> Instruction<'a> for JTypeInstruction {
     fn disassemble(&self, symbol_table: &SymbolTable) -> Result<String> {
-        let mut instruction_string = String::new();
+        let mut instruction_components = Vec::new();
 
         // Append the mnemonic
-        instruction_string.push_str(match get_mnemonic(self.opcode) {
-            Some(mnemonic) => mnemonic,
-            None => {
-                return Err(OpcodeParseError::UnknownOpcode)
-                    .context("Invalid instruction found in the machine code file.")
-            }
-        });
-
-        instruction_string.push(' ');
+        instruction_components.push(self.opcode.to_string());
 
         // Append the jump label
-        if has_jump_label(self.opcode) {
-            let label = match symbol_table.find_name(self.destination_memory_address) {
+        if let Some(destination_memory_address) = self.destination_memory_address {
+            let label = match symbol_table.find_name(destination_memory_address) {
                 Some(label) => label,
                 None => {
                     return Err(SymbolTableError::LabelNotFound)
@@ -320,20 +351,67 @@ impl InstructionFormat for JTypeInstruction {
                 }
             };
 
-            instruction_string.push_str(label);
+            instruction_components.push(label);
         }
 
-        instruction_string.push('\n');
-
-        Ok(instruction_string)
+        Ok(instruction_components.join(" "))
     }
+}
 
-    fn encode(&self) -> u32 {
-        (self.opcode as u32) << 24 | (self.destination_memory_address as u32)
+impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for JTypeInstruction {
+    type Error = anyhow::Error;
+
+    fn try_from((instruction_text, symbol_table): (&'a str, &'a SymbolTable)) -> Result<Self> {
+        let opcode = get_opcode_from_mnemonic(instruction_text)?;
+
+        let mut destination_memory_address = None;
+
+        // Skip address resolution for instructions with no jump label
+        // HALT instructions do not have a jump label
+        if should_have_jump_label(&opcode) {
+            let label = instruction_text.without_first_word();
+
+            // Get the destination address of a given label name
+            let Some(address) = symbol_table.find_address(label.trim()) else {
+                return Err(SymbolTableError::LabelNotFound)
+                    .context("Label not found in symbol table.")
+                    .context(format!("At: '{}'", label))
+            };
+
+            destination_memory_address = Some(address);
+        }
+
+        Ok(Self {
+            opcode,
+            destination_memory_address,
+        })
     }
+}
 
-    fn decode(&mut self, encoded_instruction: u32) {
-        self.opcode = extract_opcode(encoded_instruction);
-        self.destination_memory_address = extract_address(encoded_instruction);
+impl TryFrom<u32> for JTypeInstruction {
+    type Error = anyhow::Error;
+
+    fn try_from(encoded_instruction: u32) -> Result<Self> {
+        // * This is only called if the instruction has been verified both
+        // * to have a valid opcode and to be an J-Type instruction
+        let opcode = extract_opcode(encoded_instruction).unwrap();
+        assert_eq!(EncodingFormat::J, opcode.clone().into());
+
+        let destination_memory_address =
+            should_have_jump_label(&opcode).then(|| extract_address(encoded_instruction));
+
+        Ok(Self {
+            opcode,
+            destination_memory_address,
+        })
+    }
+}
+
+impl Into<u32> for JTypeInstruction {
+    fn into(self) -> u32 {
+        let opcode = self.opcode.as_u8() as u32;
+        let destination_memory_address = self.destination_memory_address.unwrap_or_default() as u32;
+
+        opcode << 24 | destination_memory_address
     }
 }

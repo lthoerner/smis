@@ -1,7 +1,8 @@
 use crate::utilities::{
     errors::*,
-    instructions::InstructionFormat,
-    messages, opcodes,
+    instructions::{Instruction, InstructionContainer},
+    messages,
+    opcodes::Opcode,
     symbol_table::{self, SymbolTable},
     SmisString,
 };
@@ -25,15 +26,15 @@ pub fn start_assembler(assembly_filename: &str, binary_filename: &str) -> Result
     }
 
     // Open/create the input and output file
-    let assembly_file = File::options().read(true).open(assembly_filename)
-        .map_err(|_| FileHandlerError::FileOpenFailed)
-        .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
-        .context(messages::USAGE)?;
+    let Ok(assembly_file) = File::options().read(true).open(assembly_filename) else {
+        return Err(FileHandlerError::FileOpenFailed)
+            .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.");
+    };
 
-    let mut binary_file = File::options().write(true).create(true).open(binary_filename)
-        .map_err(|_| FileHandlerError::FileCreateFailed)
-        .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
-        .context(messages::USAGE)?;
+    let Ok(mut binary_file) = File::options().write(true).create(true).open(binary_filename) else {
+        return Err(FileHandlerError::FileCreateFailed)
+            .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.");
+    };
 
     // Scan all labels into the symbol table
     let symbol_table = read_labels(&assembly_file)?;
@@ -139,40 +140,25 @@ fn assemble_instructions(assembly_file: &File, symbol_table: &SymbolTable) -> Re
             continue;
         }
 
-        let opcode =
-            get_opcode_from_instruction_text(line).context(format!("On line: {}", line_count))?;
-
-        // Gets an Instruction with the necessary format and the given opcode
-        let mut instruction = match opcodes::get_instruction(opcode) {
-            Some(instruction) => instruction,
-            None => {
-                return Err(OpcodeParseError::UnknownOpcode)
-                    .context("[INTERNAL ERROR] Used an invalid opcode to create an instruction.")
-            }
-        };
-
-        // Assemble and encode the instruction, then add it to the Vec
-        instruction
-            .assemble(line, symbol_table)
-            .context(format!("On line: {}", line_count))?;
-        assembled_instructions.push(instruction.encode());
+        // Encode and assemble the instruction, then add it to the Vec
+        let assembled_instruction = InstructionContainer::assemble(line, symbol_table)
+            .context(format!("On line: {}", line_count))?
+            .encode();
+        assembled_instructions.push(assembled_instruction);
     }
 
     Ok(assembled_instructions)
 }
 
 // Takes the instruction, gets the mnemonic, and translates it into an opcode
-pub fn get_opcode_from_instruction_text(instruction: &str) -> Result<u8> {
-    match instruction.get_word(0) {
-        Some(mnemonic) => match opcodes::get_opcode(mnemonic) {
-            Some(opcode) => Ok(opcode),
-            None => Err(MnemonicParseError::UnknownMnemonic)
-                .context("Unknown or malformed mnemonic.")
-                .context(format!("At: '{}'", mnemonic)),
-        },
-        None => Err(MnemonicParseError::InvalidIndex)
-            .context("[INTERNAL ERROR] Invalid mnemonic index access."),
+pub fn get_opcode_from_mnemonic(instruction: &str) -> Result<Opcode> {
+    let mnemonic = instruction.get_word(0);
+
+    if let Some(mnemonic) = mnemonic {
+        return Opcode::try_from(mnemonic.to_owned()).context(format!("At: '{}'", mnemonic));
     }
+
+    Err(MnemonicParseError::InvalidIndex).context("[INTERNAL ERROR] Invalid mnemonic index access.")
 }
 
 // Gets the register identifier operand from a given instruction
@@ -207,12 +193,12 @@ pub fn parse_register_identifier(register: &str) -> Result<u8> {
     let register_num = trimmed_register
         .parse::<u8>()
         .map_err(|_| RegisterParseError::NonNumeric)
-        .context("Non-numeric register identifier.")?;
+        .context("Non-numeric register index.")?;
 
     // Make sure the register exists (0-15)
     if register_num > 15 {
         return Err(RegisterParseError::InvalidNumber)
-            .context("Register identifier out of bounds (0-15).")
+            .context("Register index out of bounds (0-15).")
             .context(format!("At: '{}'", register));
     }
 

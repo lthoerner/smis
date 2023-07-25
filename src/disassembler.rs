@@ -1,7 +1,8 @@
 use crate::utilities::{
     errors::*,
-    instructions::InstructionFormat,
-    messages, opcodes,
+    instructions::{Instruction, InstructionContainer},
+    messages,
+    opcodes::{self, EncodingFormat},
     symbol_table::{self, SymbolTable},
 };
 use anyhow::{Context, Result};
@@ -24,26 +25,18 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
     }
 
     // Open/create the input and output file
-    let binary_file = match File::options().read(true).open(binary_filename) {
-        Ok(file) => file,
-        Err(_) => {
-            return Err(FileHandlerError::FileOpenFailed)
-                .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.")
-                .context(messages::USAGE);
-        }
+    let Ok(binary_file) = File::options().read(true).open(binary_filename) else {
+        return Err(FileHandlerError::FileOpenFailed)
+            .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.");
     };
 
-    let mut assembly_file = match File::options()
+    let Ok(mut assembly_file) = File::options()
         .write(true)
         .create(true)
         .open(assembly_filename)
-    {
-        Ok(file) => file,
-        Err(_) => {
-            return Err(FileHandlerError::FileOpenFailed)
-                .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.")
-                .context(messages::USAGE);
-        }
+    else {
+        return Err(FileHandlerError::FileOpenFailed)
+            .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.");
     };
 
     // Scan all labels into the symbol table
@@ -53,21 +46,19 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
     // Write the disassembled instructions to the output file
     write_output(
         &mut assembly_file,
-        &disassemble_instructions(&binary_file, &symbol_table)?,
+        disassemble_instructions(&binary_file, &symbol_table)?,
     )?;
 
     Ok(())
 }
 
 // Writes the disassembled instructions to the output ASM text file
-fn write_output(assembly_file: &mut File, disassembled_instructions: &Vec<String>) -> Result<()> {
-    for instruction in disassembled_instructions {
-        match assembly_file.write_all(instruction.as_bytes()) {
-            Ok(_) => (),
-            Err(_) => {
-                return Err(FileHandlerError::FileWriteFailed)
-                    .context("[INTERNAL ERROR] Couldn't write instructions to the assembly file.")
-            }
+fn write_output(assembly_file: &mut File, disassembled_instructions: Vec<String>) -> Result<()> {
+    for mut instruction in disassembled_instructions {
+        instruction.push('\n');
+        if assembly_file.write_all(instruction.as_bytes()).is_err() {
+            return Err(FileHandlerError::FileWriteFailed)
+                .context("[INTERNAL ERROR] Couldn't write instructions to the assembly file.");
         }
     }
 
@@ -100,17 +91,23 @@ fn read_labels(binary_file: &File) -> Result<SymbolTable> {
                 ErrorKind::UnexpectedEof => break,
                 _ => {
                     return Err(FileHandlerError::FileReadFailed)
-                        .context("The provided machine code file contains malformed instructions and therefore is invalid or corrupted.")
+                        .context("The provided machine code file is not evenly divisible by memory words, and therefore is invalid or corrupted.")
                 }
             },
         }
 
         // Take the bytes and put them in a single u32, converting from network byte order if needed
-        let instruction = u32::from_be_bytes(buffer);
+        let encoded_instruction = u32::from_be_bytes(buffer);
+
+        let Some(opcode) = opcodes::extract_opcode(encoded_instruction) else {
+            return Err(OpcodeParseError::UnknownOpcode)
+                .context("Encountered invalid opcode.")
+                .context(format!("At: '0x{:08X}'", encoded_instruction));
+        };
 
         // If the instruction is a J-Type and its label is unique, add it to the symbol table
-        if opcodes::is_j_type(opcodes::extract_opcode(instruction)) {
-            let label_address = extract_address(instruction);
+        if EncodingFormat::from(opcode) == EncodingFormat::J {
+            let label_address = extract_address(encoded_instruction);
 
             if !symbol_table.contains(label_address) {
                 symbol_table.add_label(generate_label_name(current_label).as_str(), label_address);
@@ -167,19 +164,13 @@ fn disassemble_instructions(binary_file: &File, symbol_table: &SymbolTable) -> R
         // Take the bytes and put them in a single u32, converting from network byte order if needed
         let encoded_instruction = u32::from_be_bytes(buffer);
 
-        // Gets an Instruction with the necessary format and the given opcode
-        let mut instruction =
-            match opcodes::get_instruction(opcodes::extract_opcode(encoded_instruction)) {
-                Some(instruction) => instruction,
-                None => {
-                    return Err(OpcodeParseError::UnknownOpcode)
-                        .context("Invalid instruction found in the machine code file.")
-                }
-            };
-
         // Decode and disassemble the instruction, then add it to the Vec
-        instruction.decode(encoded_instruction);
-        disassembled_instructions.push(instruction.disassemble(symbol_table)?);
+        let disassembled_instruction = match InstructionContainer::decode(encoded_instruction) {
+            Ok(instruction) => instruction.disassemble(symbol_table)?,
+            Err(e) => return Err(e).context(format!("At: '0x{:04X}'", current_address)),
+        };
+
+        disassembled_instructions.push(disassembled_instruction);
     }
 
     Ok(disassembled_instructions)
@@ -194,7 +185,8 @@ pub fn generate_label_name(label_number: u16) -> String {
 pub fn format_register(register: u8) -> Result<String> {
     if register > 15 {
         return Err(RegisterParseError::InvalidIndex)
-            .context("Register index out of bounds (0-15).");
+            .context("Register index out of bounds (0-15).")
+            .context(format!("At: '{}'", register));
     }
 
     // Special cases

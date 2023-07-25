@@ -1,226 +1,209 @@
-use super::instructions::{ITypeInstruction, Instruction, JTypeInstruction, RTypeInstruction};
+use super::errors::*;
+use anyhow::{Context, Result};
+use std::fmt::{Display, Formatter};
 
-// Opcode constants
-pub const OP_SET: u8 = 0x01;
-pub const OP_COPY: u8 = 0x02;
+macro_rules! u8_enum {
+    ($name:ident { $($variant:ident = $value:expr,)* }) => {
+        #[derive(Debug, Clone)]
+        pub enum $name {
+            $($variant,)*
+        }
 
-pub const OP_ADD: u8 = 0x03;
-pub const OP_SUBTRACT: u8 = 0x04;
-pub const OP_MULTIPLY: u8 = 0x05;
-pub const OP_DIVIDE: u8 = 0x06;
-pub const OP_MODULO: u8 = 0x07;
+        impl $name {
+            fn from_u8(val: u8) -> Option<Self> {
+                match val {
+                    $( $value => Some(Self::$variant), )*
+                    _ => None,
+                }
+            }
 
-pub const OP_COMPARE: u8 = 0x08;
-
-pub const OP_SHIFT_LEFT: u8 = 0x09;
-pub const OP_SHIFT_RIGHT: u8 = 0x0A;
-
-pub const OP_AND: u8 = 0x0B;
-pub const OP_OR: u8 = 0x0C;
-pub const OP_XOR: u8 = 0x0D;
-pub const OP_NAND: u8 = 0x0E;
-pub const OP_NOR: u8 = 0x0F;
-pub const OP_NOT: u8 = 0x10;
-
-pub const OP_ADD_IMM: u8 = 0x11;
-pub const OP_SUBTRACT_IMM: u8 = 0x12;
-pub const OP_MULTIPLY_IMM: u8 = 0x13;
-pub const OP_DIVIDE_IMM: u8 = 0x14;
-pub const OP_MODULO_IMM: u8 = 0x15;
-
-pub const OP_COMPARE_IMM: u8 = 0x16;
-
-pub const OP_SHIFT_LEFT_IMM: u8 = 0x17;
-pub const OP_SHIFT_RIGHT_IMM: u8 = 0x18;
-
-pub const OP_AND_IMM: u8 = 0x19;
-pub const OP_OR_IMM: u8 = 0x1A;
-pub const OP_XOR_IMM: u8 = 0x1B;
-pub const OP_NAND_IMM: u8 = 0x1C;
-pub const OP_NOR_IMM: u8 = 0x1D;
-
-pub const OP_LOAD: u8 = 0x1E;
-pub const OP_STORE: u8 = 0x1F;
-
-pub const OP_JUMP: u8 = 0x20;
-pub const OP_JUMP_IF_ZERO: u8 = 0x21;
-pub const OP_JUMP_IF_NOTZERO: u8 = 0x22;
-pub const OP_JUMP_LINK: u8 = 0x23;
-
-pub const OP_HALT: u8 = 0x24;
-
-pub const OP_PRINT: u8 = 0x25;
-
-#[allow(dead_code)]
-// Gets the associated mnemonic for a given opcode
-pub fn get_mnemonic(opcode: u8) -> Option<&'static str> {
-    Some(match opcode {
-        OP_SET => "SET",
-        OP_COPY => "COPY",
-        OP_ADD => "ADD",
-        OP_SUBTRACT => "SUBTRACT",
-        OP_MULTIPLY => "MULTIPLY",
-        OP_DIVIDE => "DIVIDE",
-        OP_MODULO => "MODULO",
-        OP_COMPARE => "COMPARE",
-        OP_SHIFT_LEFT => "SHIFT-LEFT",
-        OP_SHIFT_RIGHT => "SHIFT-RIGHT",
-        OP_AND => "AND",
-        OP_OR => "OR",
-        OP_XOR => "XOR",
-        OP_NAND => "NAND",
-        OP_NOR => "NOR",
-        OP_NOT => "NOT",
-        OP_ADD_IMM => "ADD-IMM",
-        OP_SUBTRACT_IMM => "SUBTRACT-IMM",
-        OP_MULTIPLY_IMM => "MULTIPLY-IMM",
-        OP_DIVIDE_IMM => "DIVIDE-IMM",
-        OP_MODULO_IMM => "MODULO-IMM",
-        OP_COMPARE_IMM => "COMPARE-IMM",
-        OP_SHIFT_LEFT_IMM => "SHIFT-LEFT-IMM",
-        OP_SHIFT_RIGHT_IMM => "SHIFT-RIGHT-IMM",
-        OP_AND_IMM => "AND-IMM",
-        OP_OR_IMM => "OR-IMM",
-        OP_XOR_IMM => "XOR-IMM",
-        OP_NAND_IMM => "NAND-IMM",
-        OP_NOR_IMM => "NOR-IMM",
-        OP_LOAD => "LOAD",
-        OP_STORE => "STORE",
-        OP_JUMP => "JUMP",
-        OP_JUMP_IF_ZERO => "JUMP-IF-ZERO",
-        OP_JUMP_IF_NOTZERO => "JUMP-IF-NOTZERO",
-        OP_JUMP_LINK => "JUMP-LINK",
-        OP_HALT => "HALT",
-        OP_PRINT => "PRINT",
-        _ => return None,
-    })
+            pub fn as_u8(&self) -> u8 {
+                match self {
+                    $( Self::$variant => $value, )*
+                }
+            }
+        }
+    };
 }
 
-// Gets the associated opcode for a given mnemonic
-pub fn get_opcode(mnemonic: &str) -> Option<u8> {
-    Some(match mnemonic.to_uppercase().as_str() {
-        "SET" => OP_SET,
-        "COPY" => OP_COPY,
-        "ADD" => OP_ADD,
-        "SUBTRACT" => OP_SUBTRACT,
-        "MULTIPLY" => OP_MULTIPLY,
-        "DIVIDE" => OP_DIVIDE,
-        "MODULO" => OP_MODULO,
-        "COMPARE" => OP_COMPARE,
-        "SHIFT-LEFT" => OP_SHIFT_LEFT,
-        "SHIFT-RIGHT" => OP_SHIFT_RIGHT,
-        "AND" => OP_AND,
-        "OR" => OP_OR,
-        "XOR" => OP_XOR,
-        "NAND" => OP_NAND,
-        "NOR" => OP_NOR,
-        "NOT" => OP_NOT,
-        "ADD-IMM" => OP_ADD_IMM,
-        "SUBTRACT-IMM" => OP_SUBTRACT_IMM,
-        "MULTIPLY-IMM" => OP_MULTIPLY_IMM,
-        "DIVIDE-IMM" => OP_DIVIDE_IMM,
-        "MODULO-IMM" => OP_MODULO_IMM,
-        "COMPARE-IMM" => OP_COMPARE_IMM,
-        "SHIFT-LEFT-IMM" => OP_SHIFT_LEFT_IMM,
-        "SHIFT-RIGHT-IMM" => OP_SHIFT_RIGHT_IMM,
-        "AND-IMM" => OP_AND_IMM,
-        "OR-IMM" => OP_OR_IMM,
-        "XOR-IMM" => OP_XOR_IMM,
-        "NAND-IMM" => OP_NAND_IMM,
-        "NOR-IMM" => OP_NOR_IMM,
-        "LOAD" => OP_LOAD,
-        "STORE" => OP_STORE,
-        "JUMP" => OP_JUMP,
-        "JUMP-IF-ZERO" => OP_JUMP_IF_ZERO,
-        "JUMP-IF-NOTZERO" => OP_JUMP_IF_NOTZERO,
-        "JUMP-LINK" => OP_JUMP_LINK,
-        "HALT" => OP_HALT,
-        "PRINT" => OP_PRINT,
-        _ => return None,
-    })
+u8_enum! {
+    Opcode {
+        Set = 0x01,
+        Copy = 0x02,
+        Add = 0x03,
+        Subtract = 0x04,
+        Multiply = 0x05,
+        Divide = 0x06,
+        Modulo = 0x07,
+        Compare = 0x08,
+        ShiftLeft = 0x09,
+        ShiftRight = 0x0A,
+        And = 0x0B,
+        Or = 0x0C,
+        Xor = 0x0D,
+        Nand = 0x0E,
+        Nor = 0x0F,
+        Not = 0x10,
+        AddImm = 0x11,
+        SubtractImm = 0x12,
+        MultiplyImm = 0x13,
+        DivideImm = 0x14,
+        ModuloImm = 0x15,
+        CompareImm = 0x16,
+        ShiftLeftImm = 0x17,
+        ShiftRightImm = 0x18,
+        AndImm = 0x19,
+        OrImm = 0x1A,
+        XorImm = 0x1B,
+        NandImm = 0x1C,
+        NorImm = 0x1D,
+        Load = 0x1E,
+        Store = 0x1F,
+        Jump = 0x20,
+        JumpIfZero = 0x21,
+        JumpIfNotZero = 0x22,
+        JumpLink = 0x23,
+        Halt = 0x24,
+        Print = 0x25,
+    }
 }
 
-// Uses the given opcode to return an enum with fields based on the instruction format
-// TODO: This would probably be better as Into<Instruction> implementations, would be more intuitive
-pub fn get_instruction(opcode: u8) -> Option<Instruction> {
-    Some(if is_r_type(opcode) {
-        Instruction::R(RTypeInstruction::new(opcode))
-    } else if is_i_type(opcode) {
-        Instruction::I(ITypeInstruction::new(opcode))
-    } else if is_j_type(opcode) {
-        Instruction::J(JTypeInstruction::new(opcode))
-    } else {
-        return None;
-    })
+#[derive(Debug, PartialEq)]
+pub enum EncodingFormat {
+    R,
+    I,
+    J,
 }
 
-pub fn is_r_type(opcode: u8) -> bool {
-    matches!(
-        opcode,
-        OP_COPY
-            | OP_ADD
-            | OP_SUBTRACT
-            | OP_MULTIPLY
-            | OP_DIVIDE
-            | OP_MODULO
-            | OP_COMPARE
-            | OP_SHIFT_LEFT
-            | OP_SHIFT_RIGHT
-            | OP_AND
-            | OP_OR
-            | OP_XOR
-            | OP_NAND
-            | OP_NOR
-            | OP_NOT
-            | OP_PRINT
-    )
+impl From<Opcode> for EncodingFormat {
+    fn from(opcode: Opcode) -> Self {
+        use Opcode::*;
+        match opcode {
+            Copy | Add | Subtract | Multiply | Divide | Modulo | Compare | ShiftLeft
+            | ShiftRight | And | Or | Xor | Nand | Nor | Not | Print => EncodingFormat::R,
+            Set | AddImm | SubtractImm | MultiplyImm | DivideImm | ModuloImm | CompareImm
+            | ShiftLeftImm | ShiftRightImm | AndImm | OrImm | XorImm | NandImm | NorImm | Load
+            | Store => EncodingFormat::I,
+            Jump | JumpIfZero | JumpIfNotZero | JumpLink | Halt => EncodingFormat::J,
+        }
+    }
 }
 
-pub fn is_i_type(opcode: u8) -> bool {
-    matches!(
-        opcode,
-        OP_SET
-            | OP_ADD_IMM
-            | OP_SUBTRACT_IMM
-            | OP_MULTIPLY_IMM
-            | OP_DIVIDE_IMM
-            | OP_MODULO_IMM
-            | OP_COMPARE_IMM
-            | OP_SHIFT_LEFT_IMM
-            | OP_SHIFT_RIGHT_IMM
-            | OP_AND_IMM
-            | OP_OR_IMM
-            | OP_XOR_IMM
-            | OP_NAND_IMM
-            | OP_NOR_IMM
-            | OP_LOAD
-            | OP_STORE
-    )
+impl TryFrom<String> for Opcode {
+    type Error = anyhow::Error;
+
+    fn try_from(s: String) -> Result<Self> {
+        let opcode = match s.to_uppercase().as_str() {
+            "SET" => Opcode::Set,
+            "COPY" => Opcode::Copy,
+            "ADD" => Opcode::Add,
+            "SUBTRACT" => Opcode::Subtract,
+            "MULTIPLY" => Opcode::Multiply,
+            "DIVIDE" => Opcode::Divide,
+            "MODULO" => Opcode::Modulo,
+            "COMPARE" => Opcode::Compare,
+            "SHIFT-LEFT" => Opcode::ShiftLeft,
+            "SHIFT-RIGHT" => Opcode::ShiftRight,
+            "AND" => Opcode::And,
+            "OR" => Opcode::Or,
+            "XOR" => Opcode::Xor,
+            "NAND" => Opcode::Nand,
+            "NOR" => Opcode::Nor,
+            "NOT" => Opcode::Not,
+            "ADD-IMM" => Opcode::AddImm,
+            "SUBTRACT-IMM" => Opcode::SubtractImm,
+            "MULTIPLY-IMM" => Opcode::MultiplyImm,
+            "DIVIDE-IMM" => Opcode::DivideImm,
+            "MODULO-IMM" => Opcode::ModuloImm,
+            "COMPARE-IMM" => Opcode::CompareImm,
+            "SHIFT-LEFT-IMM" => Opcode::ShiftLeftImm,
+            "SHIFT-RIGHT-IMM" => Opcode::ShiftRightImm,
+            "AND-IMM" => Opcode::AndImm,
+            "OR-IMM" => Opcode::OrImm,
+            "XOR-IMM" => Opcode::XorImm,
+            "NAND-IMM" => Opcode::NandImm,
+            "NOR-IMM" => Opcode::NorImm,
+            "LOAD" => Opcode::Load,
+            "STORE" => Opcode::Store,
+            "JUMP" => Opcode::Jump,
+            "JUMP-IF-ZERO" => Opcode::JumpIfZero,
+            "JUMP-IF-NOTZERO" => Opcode::JumpIfNotZero,
+            "JUMP-LINK" => Opcode::JumpLink,
+            "HALT" => Opcode::Halt,
+            "PRINT" => Opcode::Print,
+            _ => {
+                return Err(MnemonicParseError::UnknownMnemonic)
+                    .context("Encountered invalid or malformed mnemonic.")
+            }
+        };
+
+        Ok(opcode)
+    }
 }
 
-pub fn is_j_type(opcode: u8) -> bool {
-    matches!(
-        opcode,
-        OP_JUMP | OP_JUMP_IF_ZERO | OP_JUMP_IF_NOTZERO | OP_JUMP_LINK | OP_HALT
-    )
+impl Display for Opcode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Opcode::*;
+        let mnemonic = match self {
+            Set => "SET",
+            Copy => "COPY",
+            Add => "ADD",
+            Subtract => "SUBTRACT",
+            Multiply => "MULTIPLY",
+            Divide => "DIVIDE",
+            Modulo => "MODULO",
+            Compare => "COMPARE",
+            ShiftLeft => "SHIFT-LEFT",
+            ShiftRight => "SHIFT-RIGHT",
+            And => "AND",
+            Or => "OR",
+            Xor => "XOR",
+            Nand => "NAND",
+            Nor => "NOR",
+            Not => "NOT",
+            AddImm => "ADD-IMM",
+            SubtractImm => "SUBTRACT-IMM",
+            MultiplyImm => "MULTIPLY-IMM",
+            DivideImm => "DIVIDE-IMM",
+            ModuloImm => "MODULO-IMM",
+            CompareImm => "COMPARE-IMM",
+            ShiftLeftImm => "SHIFT-LEFT-IMM",
+            ShiftRightImm => "SHIFT-RIGHT-IMM",
+            AndImm => "AND-IMM",
+            OrImm => "OR-IMM",
+            XorImm => "XOR-IMM",
+            NandImm => "NAND-IMM",
+            NorImm => "NOR-IMM",
+            Load => "LOAD",
+            Store => "STORE",
+            Jump => "JUMP",
+            JumpIfZero => "JUMP-IF-ZERO",
+            JumpIfNotZero => "JUMP-IF-NOTZERO",
+            JumpLink => "JUMP-LINK",
+            Halt => "HALT",
+            Print => "PRINT",
+        };
+
+        write!(f, "{}", mnemonic)
+    }
 }
 
-pub fn has_destination_register(opcode: u8) -> bool {
-    !matches!(opcode, OP_COMPARE | OP_COMPARE_IMM)
+pub fn should_have_destination_register(opcode: &Opcode) -> bool {
+    !matches!(opcode, Opcode::Compare | Opcode::CompareImm)
 }
 
-pub fn has_operand_1_register(opcode: u8) -> bool {
-    !matches!(opcode, OP_SET | OP_PRINT)
+pub fn should_have_operand_1_register(opcode: &Opcode) -> bool {
+    !matches!(opcode, Opcode::Set | Opcode::Print)
 }
 
-pub fn has_operand_2_register(opcode: u8) -> bool {
-    !matches!(opcode, OP_COPY | OP_NOT | OP_PRINT)
+pub fn should_have_operand_2_register(opcode: &Opcode) -> bool {
+    !matches!(opcode, Opcode::Copy | Opcode::Not | Opcode::Print)
 }
 
-pub fn has_jump_label(opcode: u8) -> bool {
-    !matches!(opcode, OP_HALT)
+pub fn should_have_jump_label(opcode: &Opcode) -> bool {
+    !matches!(opcode, Opcode::Halt)
 }
 
-pub fn extract_opcode(instruction: u32) -> u8 {
-    ((instruction & 0xFF000000) >> 24) as u8
+pub fn extract_opcode(instruction: u32) -> Option<Opcode> {
+    Opcode::from_u8(((instruction & 0xFF000000) >> 24) as u8)
 }
