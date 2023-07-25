@@ -104,9 +104,9 @@ impl TryFrom<u32> for InstructionContainer {
     }
 }
 
-impl Into<u32> for InstructionContainer {
-    fn into(self) -> u32 {
-        match self {
+impl From<InstructionContainer> for u32 {
+    fn from(instruction: InstructionContainer) -> Self {
+        match instruction {
             InstructionContainer::R(r_type_instruction) => r_type_instruction.into(),
             InstructionContainer::I(i_type_instruction) => i_type_instruction.into(),
             InstructionContainer::J(j_type_instruction) => j_type_instruction.into(),
@@ -228,12 +228,12 @@ impl TryFrom<u32> for RTypeInstruction {
     }
 }
 
-impl Into<u32> for RTypeInstruction {
-    fn into(self) -> u32 {
-        let opcode = self.opcode.as_u8() as u32;
-        let destination_register = self.destination_register.unwrap_or_default() as u32;
-        let operand_1_register = self.operand_1_register.unwrap_or_default() as u32;
-        let operand_2_register = self.operand_2_register.unwrap_or_default() as u32;
+impl From<RTypeInstruction> for u32 {
+    fn from(instruction: RTypeInstruction) -> Self {
+        let opcode = instruction.opcode.as_u8() as u32;
+        let destination_register = instruction.destination_register.unwrap_or_default() as u32;
+        let operand_1_register = instruction.operand_1_register.unwrap_or_default() as u32;
+        let operand_2_register = instruction.operand_2_register.unwrap_or_default() as u32;
 
         opcode << 24
             | destination_register << 20
@@ -322,12 +322,12 @@ impl TryFrom<u32> for ITypeInstruction {
     }
 }
 
-impl Into<u32> for ITypeInstruction {
-    fn into(self) -> u32 {
-        let opcode = self.opcode.as_u8() as u32;
-        let destination_register = self.destination_register.unwrap_or_default() as u32;
-        let operand_1_register = self.operand_1_register.unwrap_or_default() as u32;
-        let operand_2_immediate = self.operand_2_immediate as u32;
+impl From<ITypeInstruction> for u32 {
+    fn from(instruction: ITypeInstruction) -> Self {
+        let opcode = instruction.opcode.as_u8() as u32;
+        let destination_register = instruction.destination_register.unwrap_or_default() as u32;
+        let operand_1_register = instruction.operand_1_register.unwrap_or_default() as u32;
+        let operand_2_immediate = instruction.operand_2_immediate as u32;
 
         opcode << 24 | destination_register << 20 | operand_1_register << 16 | operand_2_immediate
     }
@@ -407,10 +407,11 @@ impl TryFrom<u32> for JTypeInstruction {
     }
 }
 
-impl Into<u32> for JTypeInstruction {
-    fn into(self) -> u32 {
-        let opcode = self.opcode.as_u8() as u32;
-        let destination_memory_address = self.destination_memory_address.unwrap_or_default() as u32;
+impl From<JTypeInstruction> for u32 {
+    fn from(instruction: JTypeInstruction) -> Self {
+        let opcode = instruction.opcode.as_u8() as u32;
+        let destination_memory_address =
+            instruction.destination_memory_address.unwrap_or_default() as u32;
 
         opcode << 24 | destination_memory_address
     }

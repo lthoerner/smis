@@ -8,7 +8,6 @@ use crate::utilities::{
 use anyhow::{Context, Result};
 use std::fs::File;
 use std::io::{stdout, BufReader, ErrorKind, Read, Seek, Write};
-use std::process::exit;
 
 struct Emulator {
     // The 16 general-purpose registers
