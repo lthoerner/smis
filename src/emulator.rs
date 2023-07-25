@@ -23,6 +23,8 @@ struct Emulator {
     zero_flag: bool,
     // Whether the result of the last operation was negative
     sign_flag: bool,
+    // Whether the emulator will exit before executing the next instruction
+    should_exit: bool,
 }
 
 impl Emulator {
@@ -34,6 +36,7 @@ impl Emulator {
             instruction_register: 0,
             zero_flag: false,
             sign_flag: false,
+            should_exit: false,
         }
     }
 
@@ -97,10 +100,18 @@ impl Emulator {
 
     fn run(&mut self) -> Result<()> {
         loop {
+            // If a HALT instruction has been executed, exit the program
+            if self.should_exit {
+                return Ok(());
+            }
+
             self.fetch();
 
-            if self.instruction_register == 0 {
-                exit(0);
+            // If the instruction register is empty, the program has ended without an explicit
+            // HALT instruction; this isn't necessarily an error, but it is unadvisable to
+            // rely on this behavior because the memory could have been overwritten
+            if self.instruction_register == 0x00000000 {
+                return Ok(());
             }
 
             let instruction = self.decode()?;
@@ -645,7 +656,7 @@ impl Emulator {
     }
 
     fn HALT(&mut self) {
-        exit(0);
+        self.should_exit = true;
     }
 
     fn PRINT(&mut self, target_register: u8) {
@@ -664,8 +675,5 @@ impl Emulator {
 pub fn start_emulator(binary_filename: &str) -> Result<()> {
     let mut emulator = Emulator::new();
     emulator.load_program(binary_filename)?;
-
-    emulator.run()?;
-
-    todo!()
+    emulator.run()
 }
