@@ -63,8 +63,9 @@ u8_enum! {
         JumpIfZero = 0x21,
         JumpIfNotZero = 0x22,
         JumpLink = 0x23,
-        Halt = 0x24,
+        JumpRegister = 0x24,
         Print = 0x25,
+        Halt = 0x26,
     }
 }
 
@@ -84,7 +85,7 @@ impl From<Opcode> for EncodingFormat {
             Set | AddImm | SubtractImm | MultiplyImm | DivideImm | ModuloImm | CompareImm
             | ShiftLeftImm | ShiftRightImm | AndImm | OrImm | XorImm | NandImm | NorImm | Load
             | Store => EncodingFormat::I,
-            Jump | JumpIfZero | JumpIfNotZero | JumpLink | Halt => EncodingFormat::J,
+            Jump | JumpIfZero | JumpIfNotZero | JumpLink | JumpRegister | Halt => EncodingFormat::J,
         }
     }
 }
@@ -129,8 +130,9 @@ impl TryFrom<String> for Opcode {
             "JUMP-IF-ZERO" => Opcode::JumpIfZero,
             "JUMP-IF-NOTZERO" => Opcode::JumpIfNotZero,
             "JUMP-LINK" => Opcode::JumpLink,
-            "HALT" => Opcode::Halt,
+            "JUMP-REGISTER" => Opcode::JumpRegister,
             "PRINT" => Opcode::Print,
+            "HALT" => Opcode::Halt,
             _ => {
                 return Err(MnemonicParseError::UnknownMnemonic)
                     .context("Encountered invalid or malformed mnemonic.")
@@ -180,8 +182,9 @@ impl Display for Opcode {
             JumpIfZero => "JUMP-IF-ZERO",
             JumpIfNotZero => "JUMP-IF-NOTZERO",
             JumpLink => "JUMP-LINK",
-            Halt => "HALT",
+            JumpRegister => "JUMP-REGISTER",
             Print => "PRINT",
+            Halt => "HALT",
         };
 
         write!(f, "{}", mnemonic)
@@ -200,8 +203,12 @@ pub fn should_have_operand_2_register(opcode: &Opcode) -> bool {
     !matches!(opcode, Opcode::Copy | Opcode::Not | Opcode::Print)
 }
 
+pub fn should_have_jump_register(opcode: &Opcode) -> bool {
+    matches!(opcode, Opcode::JumpRegister)
+}
+
 pub fn should_have_jump_label(opcode: &Opcode) -> bool {
-    !matches!(opcode, Opcode::Halt)
+    !matches!(opcode, Opcode::Halt | Opcode::JumpRegister)
 }
 
 pub fn extract_opcode(instruction: u32) -> Option<Opcode> {

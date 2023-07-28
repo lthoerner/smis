@@ -134,7 +134,8 @@ pub struct ITypeInstruction {
 #[derive(Debug)]
 pub struct JTypeInstruction {
     pub opcode: Opcode,
-    pub destination_memory_address: Option<u16>,
+    pub jump_memory_address: Option<u16>,
+    pub jump_register: Option<u8>,
 }
 
 // See trait for method descriptions
@@ -344,7 +345,7 @@ impl<'a> Instruction<'a> for JTypeInstruction {
         instruction_components.push(self.opcode.to_string());
 
         // Append the jump label
-        if let Some(destination_memory_address) = self.destination_memory_address {
+        if let Some(destination_memory_address) = self.jump_memory_address {
             let label = match symbol_table.find_name(destination_memory_address) {
                 Some(label) => label,
                 None => {
@@ -366,26 +367,32 @@ impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for JTypeInstruction {
     fn try_from((instruction_text, symbol_table): (&'a str, &'a SymbolTable)) -> Result<Self> {
         let opcode = get_opcode_from_mnemonic(instruction_text)?;
 
-        let mut destination_memory_address = None;
+        let mut jump_memory_address = None;
 
         // Skip address resolution for instructions with no jump label
-        // HALT instructions do not have a jump label
+        // HALT and JUMP-REGISTER instructions do not have a jump label
         if should_have_jump_label(&opcode) {
             let label = instruction_text.without_first_word();
 
-            // Get the destination address of a given label name
+            // Get the jump address of a given label name
             let Some(address) = symbol_table.find_address(label.trim()) else {
                 return Err(SymbolTableError::LabelNotFound)
                     .context("Label not found in symbol table.")
                     .context(format!("At: '{}'", label))
             };
 
-            destination_memory_address = Some(address);
+            jump_memory_address = Some(address);
         }
+
+        // JUMP-REGISTER instructions have a jump register
+        let jump_register = should_have_jump_register(&opcode)
+            .then(|| get_register(instruction_text, 1))
+            .transpose()?;
 
         Ok(Self {
             opcode,
-            destination_memory_address,
+            jump_memory_address,
+            jump_register,
         })
     }
 }
@@ -399,12 +406,16 @@ impl TryFrom<u32> for JTypeInstruction {
         let opcode = extract_opcode(encoded_instruction).unwrap();
         assert_eq!(EncodingFormat::J, opcode.clone().into());
 
-        let destination_memory_address =
+        let jump_memory_address =
             should_have_jump_label(&opcode).then(|| extract_address(encoded_instruction));
+
+        let jump_register =
+            should_have_jump_register(&opcode).then(|| extract_register(encoded_instruction, 0));
 
         Ok(Self {
             opcode,
-            destination_memory_address,
+            jump_memory_address,
+            jump_register,
         })
     }
 }
@@ -412,9 +423,9 @@ impl TryFrom<u32> for JTypeInstruction {
 impl From<JTypeInstruction> for u32 {
     fn from(instruction: JTypeInstruction) -> Self {
         let opcode = instruction.opcode.as_u8() as u32;
-        let destination_memory_address =
-            instruction.destination_memory_address.unwrap_or_default() as u32;
+        let jump_memory_address = instruction.jump_memory_address.unwrap_or_default() as u32;
+        let jump_register = instruction.jump_register.unwrap_or_default() as u32;
 
-        opcode << 24 | destination_memory_address
+        opcode << 24 | jump_register << 20 | jump_memory_address
     }
 }

@@ -1,0 +1,81 @@
+MAIN:
+	jump-link HELLO_WORLD
+
+	// Print a space
+	set R1 #32
+	print R1
+
+	// This is just an example value, it could be any value really
+	set R1 #12345
+
+	jump-link PRINT_NUMBER
+
+	// Print two line breaks
+	set R1 #10
+	print R1
+	print R1
+halt
+
+
+// Prints the numeric value in register R1
+PRINT_NUMBER:
+	// Have to track the memory index to store the values at
+	set R10 #1000
+
+	// Get each digit of a decimal value and store it in a char value
+	// while x > 0
+	// 	d = x % 10
+	// 	x = x / 10
+	NEXT_DIGIT:
+		modulo-imm R2 R1 #10
+		divide-imm R1 R1 #10
+
+		// Get the ASCII value of the digit
+		add-imm R2 R2 #48
+		// Load the digit into memory
+		store R2 R10 #0
+		add-imm R10 R10 #1
+
+	compare-imm R1 #0
+	jump-if-notzero NEXT_DIGIT
+
+	// After the digits chars have been calculated, print them
+	// while c != '\0'
+	// 	print c
+	PRINT_CHAR:
+		load R2 R10 #0
+		print R2
+		subtract-imm R10 R10 #1
+
+	compare-imm R10 #999
+	jump-if-notzero PRINT_CHAR
+jump-register RLR
+
+
+// Prints "Hello world!"
+HELLO_WORLD:
+	set R1 #72
+	print R1
+	set R1 #101
+	print R1
+	set R1 #108
+	print R1
+	print R1
+	set R1 #111
+	print R1
+	set R1 #32
+	print R1
+	set R1 #119
+	print R1
+	set R1 #111
+	print R1
+	set R1 #114
+	print R1
+	set R1 #108
+	print R1
+	set R1 #100
+	print R1
+	set R1 #33
+	print R1
+jump-register RLR
+

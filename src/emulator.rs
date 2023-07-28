@@ -322,10 +322,11 @@ impl Emulator {
     fn execute_j_type(&mut self, instruction: JTypeInstruction) {
         use Opcode::*;
         match instruction.opcode {
-            Jump => self.JUMP(instruction.destination_memory_address.unwrap()),
-            JumpIfZero => self.JUMP_IF_ZERO(instruction.destination_memory_address.unwrap()),
-            JumpIfNotZero => self.JUMP_IF_NOTZERO(instruction.destination_memory_address.unwrap()),
-            JumpLink => self.JUMP_LINK(instruction.destination_memory_address.unwrap()),
+            Jump => self.JUMP(instruction.jump_memory_address.unwrap()),
+            JumpIfZero => self.JUMP_IF_ZERO(instruction.jump_memory_address.unwrap()),
+            JumpIfNotZero => self.JUMP_IF_NOTZERO(instruction.jump_memory_address.unwrap()),
+            JumpLink => self.JUMP_LINK(instruction.jump_memory_address.unwrap()),
+            JumpRegister => self.JUMP_REGISTER(instruction.jump_register.unwrap()),
 
             Halt => self.HALT(),
 
@@ -654,8 +655,8 @@ impl Emulator {
         self.program_counter = address_immediate;
     }
 
-    fn HALT(&mut self) {
-        self.should_exit = true;
+    fn JUMP_REGISTER(&mut self, address_register: u8) {
+        self.program_counter = self.registers[address_register as usize];
     }
 
     fn PRINT(&mut self, target_register: u8) {
@@ -663,6 +664,10 @@ impl Emulator {
         let char_to_print = (self.registers[target_register as usize] & 0xFF) as u8 as char;
         print!("{}", char_to_print);
         stdout().flush().unwrap();
+    }
+
+    fn HALT(&mut self) {
+        self.should_exit = true;
     }
 
     fn set_flags(&mut self, result: u16) {
