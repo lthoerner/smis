@@ -278,9 +278,11 @@ impl<'a> TryFrom<(&'a str, &'a SymbolTable)> for ITypeInstruction {
             .then(|| get_register(instruction_text, 1))
             .transpose()?;
 
+        let no_destination_index_adjustment = destination_register.is_none() as usize;
+
         // Similarly, SET instructions do not have a register operand
         let operand_1_register = should_have_operand_1_register(&opcode)
-            .then(|| get_register(instruction_text, 2))
+            .then(|| get_register(instruction_text, 2 - no_destination_index_adjustment))
             .transpose()?;
 
         // All I-Format instructions are guaranteed to have an immediate operand
