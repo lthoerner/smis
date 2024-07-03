@@ -28,7 +28,12 @@ pub fn start_assembler(assembly_filename: &str, binary_filename: &str) -> Result
             .context("Couldn't open the input file. Make sure the file exists and is in the necessary directory.");
     };
 
-    let Ok(mut binary_file) = File::options().write(true).create(true).open(binary_filename) else {
+    let Ok(mut binary_file) = File::options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(binary_filename)
+    else {
         return Err(FileHandlerError::FileCreateFailed)
             .context("Couldn't open or create the output file. Make sure the file is not write-protected if it already exists.");
     };

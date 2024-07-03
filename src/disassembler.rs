@@ -30,6 +30,7 @@ pub fn start_disassembler(binary_filename: &str, assembly_filename: &str) -> Res
     let Ok(mut assembly_file) = File::options()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(assembly_filename)
     else {
         return Err(FileHandlerError::FileOpenFailed)
