@@ -33,11 +33,11 @@ smis --help
 
 You must have Cargo installed on your system in order to build the program.
 
-Once you write your code in a .txt file, you can assemble it into a .bin file by typing "smis assemble \<your asm file.txt\> \<target output file.bin\>".
+Once you write your code in a .txt file, you can assemble it into a .bin file by typing `smis assemble <your_asm_file.txt> <target_output_file.bin>`.
 
-The assembled code can be run through the emulator using "smis run \<your executable.bin\>".
+The assembled code can be run through the emulator using `smis run <your_executable.bin>`.
 
-If you want to disassemble a file, use "smis disassemble \<your executable.bin\> \<target output file.txt\>".
+If you want to disassemble a file, use `smis disassemble <your_executable.bin> <target_output_file.txt>`.
 
 
 If you need any help, you may check the documentation PDF at https://code.lthoerner.com/blob/main/Documentation/SMIS.pdf, or contact me through Github.
